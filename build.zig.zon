@@ -1,0 +1,13 @@
+.{
+    .name = .zengine,
+    .version = "0.1.0", // <-- Make sure this matches zig-version/version.zig
+    .minimum_zig_version = "0.14.0",
+    .dependencies = .{
+    	//dependencies here    
+    },
+    .paths = .{
+	"src",
+	"build.zig",
+    },
+    .fingerprint = 0x8c1eeb3592bf122b,
+}
