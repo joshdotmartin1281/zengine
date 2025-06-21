@@ -4,11 +4,12 @@ const c = @import("../window/window_builder.zig").c; // Import the public 'c' fr
 
 pub const Shader = struct {
     id: c.GLuint,
+    //allocator: std.mem.Allocator,
 
     pub fn init(vertex_path: []const u8, fragment_path: []const u8) !Shader {
-        const allocator = std.heap.page_allocator;
         var vertex_source: []u8 = &.{}; // Initialize as empty slice
         var fragment_source: []u8 = &.{}; // Initialize as empty slice
+        const allocator = std.heap.page_allocator;
 
         defer {
             // Only free if the slice actually points to allocated memory and has a length
