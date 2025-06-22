@@ -5,44 +5,56 @@ pub const c = @cImport({
 });
 
 pub const WindowBuilder = struct {
-    window: ?*c.GLFWwindow = null,
+    handle: ?*c.GLFWwindow = null,
+    allocator: std.mem.Allocator,
 
-    pub fn init(self: *WindowBuilder, width: i32, height: i32, title: []const u8) !void {
-        if (c.glfwInit() == 0) {
-            return error.GlfwInitFailed; // Changed to error.GlfwInitFailed
+    pub fn init(allocator: std.mem.Allocator, width: i32, height: i32, title: [:0]const u8) !@This() {
+        if (c.glfwInit() == c.GLFW_FALSE) {
+            std.log.err("Failed to initialize GLFW", .{});
+            return error.GLFWInitFailed;
         }
 
         c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MAJOR, 3);
         c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MINOR, 3);
         c.glfwWindowHint(c.GLFW_OPENGL_PROFILE, c.GLFW_OPENGL_CORE_PROFILE);
-        // On macOS uncomment this line:
-        // c.glfwWindowHint(c.GLFW_OPENGL_FORWARD_COMPAT, c.GL_TRUE);
+        c.glfwWindowHint(c.GLFW_OPENGL_FORWARD_COMPAT, c.GL_TRUE); // For macOS compatibility
 
-        const win = c.glfwCreateWindow(width, height, title.ptr, null, null);
-        if (win == null) {
+        const handle = c.glfwCreateWindow(width, height, title, null, null) orelse {
             c.glfwTerminate();
-            return error.WindowCreationFailed; // Changed to error.WindowCreationFailed
-        }
-        self.window = win;
+            return error.WindowCreationFailed;
+        };
 
-        c.glfwMakeContextCurrent(win);
+        c.glfwMakeContextCurrent(handle);
 
-        if (c.gladLoadGL() == 0) {
-            c.glfwDestroyWindow(win);
-            c.glfwTerminate();
-            return error.GladLoadFailed; // Changed to error.GladLoadFailed
-        }
+        _ = c.gladLoadGLLoader(struct {
+            fn load_proc(name: [*c]const u8) callconv(.C) ?*anyopaque {
+                const raw_fn_ptr = c.glfwGetProcAddress(name);
+                return if (raw_fn_ptr) |ptr|
+                    @constCast(@as(?*const anyopaque, ptr))
+                else
+                    null;
+            }
+        }.load_proc);
 
-        // Enable vsync
-        c.glfwSwapInterval(1);
+        std.debug.print("OpenGL Vendor: {s}\n", .{c.glGetString(c.GL_VENDOR)});
+        std.debug.print("OpenGL Renderer: {s}\n", .{c.glGetString(c.GL_RENDERER)});
+        std.debug.print("OpenGL Version: {s}\n", .{c.glGetString(c.GL_VERSION)});
+
+        return .{ .handle = handle, .allocator = allocator };
     }
 
-    pub fn shouldClose(self: *WindowBuilder) bool {
-        if (self.window) |win| {
-            return c.glfwWindowShouldClose(win) != 0;
-        } else {
-            return true; // or false, depending on desired behavior if no window
-        }
+    pub fn shouldClose(self: @This()) bool {
+        return c.glfwWindowShouldClose(self.handle) == c.GL_TRUE;
+    }
+
+    pub fn update(self: @This()) void {
+        c.glfwSwapBuffers(self.handle);
+        c.glfwPollEvents();
+    }
+
+    pub fn deinit(self: @This()) void {
+        c.glfwDestroyWindow(self.handle);
+        c.glfwTerminate();
     }
 
     pub fn pollEvents(self: *WindowBuilder) void {
@@ -51,13 +63,13 @@ pub const WindowBuilder = struct {
     }
 
     pub fn swapBuffers(self: *WindowBuilder) void {
-        if (self.window) |win| {
+        if (self.handle) |win| {
             c.glfwSwapBuffers(win);
         }
     }
 
     pub fn destroy(self: *WindowBuilder) void {
-        if (self.window) |win| {
+        if (self.handle) |win| {
             c.glfwDestroyWindow(win);
             c.glfwTerminate();
             self.window = null;

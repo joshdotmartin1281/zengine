@@ -2,12 +2,16 @@
 const std = @import("std");
 const window_builder = @import("window/window_builder.zig");
 const Shader = @import("graphics/shader.zig").Shader; // Import the Shader struct
+const InputManager = @import("input/input_manager.zig").InputManager;
 const c = window_builder.c;
 
 pub fn main() !void {
-    var wb = window_builder.WindowBuilder{};
-    try wb.init(800, 600, "Zig OpenGL Window");
-    defer wb.destroy();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    var wb = try window_builder.WindowBuilder.init(allocator, 800, 600, "Zengine");
+    defer wb.deinit();
 
     // --- Vertices for a triangle ---
     const vertices = [_]f32{
@@ -15,6 +19,11 @@ pub fn main() !void {
         0.5, -0.5, 0.0, // Bottom-right
         0.0, 0.5, 0.0, // Top
     };
+
+    var input_manager = try InputManager.init(allocator);
+    defer input_manager.deinit();
+    c.glfwSetWindowUserPointer(wb.handle, @as(*anyopaque, &input_manager));
+    _ = c.glfwSetKeyCallback(wb.handle, InputManager.glfw_key_callback);
 
     // --- Shader Initialization ---
     // Paths are relative to your build.zig's root_source_file or working directory when running 'zig run'
@@ -40,7 +49,28 @@ pub fn main() !void {
 
     // --- Main Render Loop ---
     while (!wb.shouldClose()) {
+        input_manager.update();
         wb.pollEvents();
+
+        if (input_manager.is_action_pressed(.Jump)) {
+            std.debug.print("Jump action just pressed\n", .{});
+        }
+
+        if (input_manager.is_action_released(.Jump)) {
+            std.debug.print("Jump action just released\n", .{});
+        }
+
+        if (input_manager.is_action_pressed(.Forward)) {
+            std.debug.print("Forward action just pressed\n", .{});
+        }
+
+        if (input_manager.is_action_held(.Forward) and input_manager.is_action_held(.Jump)) {
+            std.debug.print("Forward and jump action held\n", .{});
+        }
+
+        if (input_manager.is_action_released(.Forward)) {
+            std.debug.print("Forward action just released\n", .{});
+        }
 
         c.glClearColor(0.2, 0.3, 0.3, 1.0);
         c.glClear(c.GL_COLOR_BUFFER_BIT);
