@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -23,9 +24,20 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.linkSystemLibrary("glfw");
-    exe.linkSystemLibrary("GL"); // Linux
-    // exe.linkSystemLibrary("opengl32"); // Windows
-    // exe.linkFramework("OpenGL");       // macOS
+
+    switch (builtin.os.tag) {
+        .linux => {
+            exe.linkSystemLibrary("GL");
+        },
+        .windows => {
+            exe.linkSystemLibrary("opengl32");
+        },
+        .macos => {
+            exe.linkFramework("OpenGL");
+            exe.linkFramework("Cocoa");
+        },
+        else => {},
+    }
 
     b.installArtifact(exe);
 
