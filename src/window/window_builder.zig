@@ -4,6 +4,12 @@ pub const c = @cImport({
     @cInclude("GLFW/glfw3.h");
 });
 
+pub const WindowError = error{
+    GlfWInitFailed,
+    WindowCreationFailed,
+    GladLoadFailed,
+};
+
 pub const WindowBuilder = struct {
     handle: ?*c.GLFWwindow = null,
     allocator: std.mem.Allocator,
@@ -11,22 +17,22 @@ pub const WindowBuilder = struct {
     pub fn init(allocator: std.mem.Allocator, width: i32, height: i32, title: [:0]const u8) !@This() {
         if (c.glfwInit() == c.GLFW_FALSE) {
             std.log.err("Failed to initialize GLFW", .{});
-            return error.GLFWInitFailed;
+            return WindowError.GlfWInitFailed;
         }
 
         c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MAJOR, 3);
         c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MINOR, 3);
         c.glfwWindowHint(c.GLFW_OPENGL_PROFILE, c.GLFW_OPENGL_CORE_PROFILE);
-        c.glfwWindowHint(c.GLFW_OPENGL_FORWARD_COMPAT, c.GL_TRUE); // For macOS compatibility
+        c.glfwWindowHint(c.GLFW_OPENGL_FORWARD_COMPAT, c.GL_TRUE);
 
         const handle = c.glfwCreateWindow(width, height, title, null, null) orelse {
             c.glfwTerminate();
-            return error.WindowCreationFailed;
+            return WindowError.WindowCreationFailed;
         };
 
         c.glfwMakeContextCurrent(handle);
 
-        _ = c.gladLoadGLLoader(struct {
+        const result = c.gladLoadGLLoader(struct {
             fn load_proc(name: [*c]const u8) callconv(.C) ?*anyopaque {
                 const raw_fn_ptr = c.glfwGetProcAddress(name);
                 return if (raw_fn_ptr) |ptr|
@@ -36,11 +42,29 @@ pub const WindowBuilder = struct {
             }
         }.load_proc);
 
-        std.debug.print("OpenGL Vendor: {s}\n", .{c.glGetString(c.GL_VENDOR)});
-        std.debug.print("OpenGL Renderer: {s}\n", .{c.glGetString(c.GL_RENDERER)});
-        std.debug.print("OpenGL Version: {s}\n", .{c.glGetString(c.GL_VERSION)});
+        if (result == 0) {
+            c.glfwDestroyWindow(handle);
+            c.glfwTerminate();
+            return WindowError.GladLoadFailed;
+        }
+
+        const vendor = c.glGetString(c.GL_VENDOR);
+        const renderer = c.glGetString(c.GL_RENDERER);
+        const version = c.glGetString(c.GL_VERSION);
+
+        std.debug.print("OpenGL Vendor: {s}\n", .{vendor});
+        std.debug.print("OpenGL Renderer: {s}\n", .{renderer});
+        std.debug.print("OpenGL Version: {s}\n", .{version});
 
         return .{ .handle = handle, .allocator = allocator };
+    }
+
+    pub fn deinit(self: *WindowBuilder) void {
+        if (self.handle) |win| {
+            c.glfwDestroyWindow(win);
+            self.handle = null;
+        }
+        c.glfwTerminate();
     }
 
     pub fn shouldClose(self: @This()) bool {
@@ -50,11 +74,6 @@ pub const WindowBuilder = struct {
     pub fn update(self: @This()) void {
         c.glfwSwapBuffers(self.handle);
         c.glfwPollEvents();
-    }
-
-    pub fn deinit(self: @This()) void {
-        c.glfwDestroyWindow(self.handle);
-        c.glfwTerminate();
     }
 
     pub fn pollEvents(self: *WindowBuilder) void {
@@ -67,18 +86,4 @@ pub const WindowBuilder = struct {
             c.glfwSwapBuffers(win);
         }
     }
-
-    pub fn destroy(self: *WindowBuilder) void {
-        if (self.handle) |win| {
-            c.glfwDestroyWindow(win);
-            c.glfwTerminate();
-            self.window = null;
-        }
-    }
-};
-
-pub const WindowError = error{
-    GlfwInitFailed,
-    WindowCreationFailed,
-    GladLoadFailed,
 };

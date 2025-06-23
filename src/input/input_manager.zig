@@ -54,6 +54,14 @@ const ActionHasher = struct {
     }
 };
 
+pub const InputError = error{
+    InvalidKeyCode,
+    InvalidMouseButton,
+    InvalidAction,
+    InputManagerNotSet,
+    GLFWNotInitialized,
+};
+
 ///Input manager
 pub const InputManager = struct {
     keys: [512]State = [_]State{.Up} ** 512,
@@ -86,6 +94,7 @@ pub const InputManager = struct {
 
         return manager;
     }
+
     /// deinit the input manager.
     pub fn deinit(self: *InputManager) void {
         self.key_bindings.deinit();
@@ -122,50 +131,44 @@ pub const InputManager = struct {
     }
 
     ///
-    fn get_binding_state(self: *const InputManager, action: Action) ?State {
+    fn get_binding_state(self: *const InputManager, action: Action) InputError!State {
         const binding = self.key_bindings.get(action) orelse {
             std.log.warn("No binding found for Action: {s}", .{@tagName(action)});
-            return null;
+            return InputError.InvalidAction;
         };
         return switch (binding.binding_type) {
             .Keyboard => {
-                if (binding.glfw_code < 0) return .Up;
+                if (binding.glfw_code < 0) return InputError.InvalidKeyCode;
                 const index: usize = @intCast(binding.glfw_code);
-                if (index >= self.keys.len) return .Up;
+                if (index >= self.keys.len) return InputError.InvalidKeyCode;
                 return self.keys[index];
             },
             .Mouse => {
-                if (binding.glfw_code < 0) return .Up;
+                if (binding.glfw_code < 0) return InputError.InvalidMouseButton;
                 const index: usize = @intCast(binding.glfw_code);
-                if (index >= self.mouse_buttons.len) return .Up;
+                if (index >= self.mouse_buttons.len) return InputError.InvalidMouseButton;
                 return self.mouse_buttons[index];
             },
         };
     }
 
     pub fn is_action_pressed(self: *const InputManager, action: Action) bool {
-        const state = self.get_binding_state(action);
-        return state != null and state.? == .Pressed;
+        const state = self.get_binding_state(action) catch .Up;
+        return state == .Pressed;
     }
 
     pub fn is_action_held(self: *const InputManager, action: Action) bool {
-        const state = self.get_binding_state(action);
-        return state != null and (state.? == .Held or state.? == .Pressed);
+        const state = self.get_binding_state(action) catch .Up;
+        return switch (state) {
+            .Held, .Pressed => true,
+            else => false,
+        };
     }
 
     pub fn is_action_released(self: *const InputManager, action: Action) bool {
-        const state = self.get_binding_state(action);
-        return state != null and state.? == .Released;
+        const state = self.get_binding_state(action) catch .Up;
+        return state == .Released;
     }
-
-    fn get_input_manager(window: ?*c.GLFWwindow) *InputManager {
-        const ptr = c.glfwGetWindowUserPointer(window).?;
-        const aligned_ptr: *align(@alignOf(InputManager)) anyopaque = @alignCast(ptr);
-        const input_manager_ptr: *InputManager = @ptrCast(aligned_ptr);
-        return input_manager_ptr;
-    }
-
-    // --- GLFW Callback Functions ---
 
     pub fn glfw_key_callback(
         window: ?*c.GLFWwindow,
@@ -194,5 +197,12 @@ pub const InputManager = struct {
             },
             else => {},
         }
+    }
+
+    fn get_input_manager(window: ?*c.GLFWwindow) *InputManager {
+        const ptr = c.glfwGetWindowUserPointer(window).?;
+        const aligned_ptr: *align(@alignOf(InputManager)) anyopaque = @alignCast(ptr);
+        const input_manager_ptr: *InputManager = @ptrCast(aligned_ptr);
+        return input_manager_ptr;
     }
 };
