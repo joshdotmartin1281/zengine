@@ -24,6 +24,9 @@ pub fn main() !void {
     defer input_manager.deinit();
     c.glfwSetWindowUserPointer(wb.handle, @as(*anyopaque, &input_manager));
     _ = c.glfwSetKeyCallback(wb.handle, InputManager.glfw_key_callback);
+    _ = c.glfwSetMouseButtonCallback(wb.handle, InputManager.glfw_mouse_callback);
+    _ = c.glfwSetCursorPosCallback(wb.handle, InputManager.glfw_cursor_position_callback);
+    _ = c.glfwSetScrollCallback(wb.handle, @ptrCast(&InputManager.glfw_scroll_callback));
 
     // --- Shader Initialization ---
     // Paths are relative to your build.zig's root_source_file or working directory when running 'zig run'
@@ -52,8 +55,8 @@ pub fn main() !void {
         input_manager.update();
         wb.pollEvents();
 
-        if (input_manager.is_action_pressed(.Jump)) {
-            std.debug.print("Jump action just pressed\n", .{});
+        if (input_manager.is_action_pressed(.M1)) {
+            std.debug.print("M1 action just pressed\n", .{});
         }
 
         if (input_manager.is_action_released(.Jump)) {
@@ -64,13 +67,16 @@ pub fn main() !void {
             std.debug.print("Forward action just pressed\n", .{});
         }
 
-        if (input_manager.is_action_held(.Forward) and input_manager.is_action_held(.Jump)) {
-            std.debug.print("Forward and jump action held\n", .{});
+        if (input_manager.is_action_held(.M1)) {
+            std.debug.print("M1 action held\n", .{});
         }
 
         if (input_manager.is_action_released(.Forward)) {
             std.debug.print("Forward action just released\n", .{});
         }
+
+        std.debug.print("Mouse moved x: {d}\n", .{input_manager.get_mouse_x()});
+        std.debug.print("Mouse moved y: {d}\n", .{input_manager.get_mouse_y()});
 
         c.glClearColor(0.2, 0.3, 0.3, 1.0);
         c.glClear(c.GL_COLOR_BUFFER_BIT);

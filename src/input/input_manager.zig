@@ -22,6 +22,7 @@ pub const Action = enum(u8) {
     Right,
     Left,
     Jump,
+    M1,
 
     pub fn hash(self: Action) u64 {
         return @intFromEnum(self);
@@ -91,6 +92,7 @@ pub const InputManager = struct {
         try manager.key_bindings.put(.Left, KeyBinding{ .binding_type = .Keyboard, .glfw_code = c.GLFW_KEY_A });
         try manager.key_bindings.put(.Right, KeyBinding{ .binding_type = .Keyboard, .glfw_code = c.GLFW_KEY_D });
         try manager.key_bindings.put(.Jump, KeyBinding{ .binding_type = .Keyboard, .glfw_code = c.GLFW_KEY_SPACE });
+        try manager.key_bindings.put(.M1, KeyBinding{ .binding_type = .Mouse, .glfw_code = c.GLFW_MOUSE_BUTTON_1 });
 
         return manager;
     }
@@ -152,6 +154,28 @@ pub const InputManager = struct {
         };
     }
 
+    pub fn get_mouse_delta(self: *const InputManager) struct { dx: f64, dy: f64 } {
+        return .{
+            .dx = self.mouse_x - self.last_mouse_x,
+            .dy = self.mouse_y - self.last_mouse_y,
+        };
+    }
+
+    pub fn get_mouse_x(self: *const InputManager) f64 {
+        return self.mouse_x;
+    }
+
+    pub fn get_mouse_y(self: *const InputManager) f64 {
+        return self.mouse_y;
+    }
+
+    pub fn get_scroll_offset(self: *const InputManager) struct { x: f64, y: f64 } {
+        return .{
+            .x = self.scroll_x_offset,
+            .y = self.scroll_y_offset,
+        };
+    }
+
     pub fn is_action_pressed(self: *const InputManager, action: Action) bool {
         const state = self.get_binding_state(action) catch .Up;
         return state == .Pressed;
@@ -179,24 +203,71 @@ pub const InputManager = struct {
     ) callconv(.C) void {
         const input_manager = get_input_manager(window);
 
-        const key_idx: usize = @intCast(key);
-        if (key_idx >= input_manager.keys.len or key_idx < 0) { // Ensure positive index as well
+        const key_id: usize = @intCast(key);
+        if (key_id >= input_manager.keys.len or key_id < 0) {
             std.log.warn("GLFW key code {d} out of bounds for InputManager.keys array.", .{key});
             return;
         }
 
         switch (action) {
             c.GLFW_PRESS => {
-                input_manager.keys[key_idx] = .Pressed;
+                input_manager.keys[key_id] = .Pressed;
             },
             c.GLFW_RELEASE => {
-                input_manager.keys[key_idx] = .Released;
+                input_manager.keys[key_id] = .Released;
             },
             c.GLFW_REPEAT => {
-                input_manager.keys[key_idx] = .Held;
+                input_manager.keys[key_id] = .Held;
             },
             else => {},
         }
+    }
+
+    pub fn glfw_mouse_callback(
+        window: ?*c.GLFWwindow,
+        button: c_int,
+        action: c_int,
+        _: c_int,
+    ) callconv(.C) void {
+        const input_manager = get_input_manager(window);
+
+        const button_id: usize = @intCast(button);
+        if (button_id >= input_manager.mouse_buttons.len or button_id < 0) {
+            std.log.warn("GLFW mouse button {d} out of bounds for InputManager.mouse_buttons arra.", .{button});
+            return;
+        }
+
+        switch (action) {
+            c.GLFW_PRESS => {
+                input_manager.mouse_buttons[button_id] = .Pressed;
+            },
+            c.GLFW_RELEASE => {
+                input_manager.mouse_buttons[button_id] = .Released;
+            },
+            else => {},
+        }
+    }
+
+    pub fn glfw_cursor_position_callback(
+        window: ?*c.GLFWwindow,
+        xpos: f64,
+        ypos: f64,
+    ) callconv(.C) void {
+        const input_manager = get_input_manager(window);
+
+        input_manager.mouse_x = xpos;
+        input_manager.mouse_y = ypos;
+    }
+
+    pub fn glfw_scroll_callback(
+        window: ?*c.GLFWwindow,
+        xoffset: f64,
+        yoffset: f64,
+    ) callconv(.C) void {
+        const input_manager = get_input_manager(window);
+
+        input_manager.scroll_x_offset += xoffset;
+        input_manager.scroll_y_offset += yoffset;
     }
 
     fn get_input_manager(window: ?*c.GLFWwindow) *InputManager {
