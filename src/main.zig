@@ -75,8 +75,11 @@ pub fn main() !void {
             std.debug.print("Forward action just released\n", .{});
         }
 
-        std.debug.print("Mouse moved x: {d}\n", .{input_manager.get_mouse_x()});
-        std.debug.print("Mouse moved y: {d}\n", .{input_manager.get_mouse_y()});
+        //std.debug.print("Mouse moved x: {d}\n", .{input_manager.get_mouse_x()});
+        //std.debug.print("Mouse moved y: {d}\n", .{input_manager.get_mouse_y()});
+        if (input_manager.get_scroll_offset().x != input_manager.get_scroll_offset().y) {
+            std.debug.print("Scroll wheel delta: {any}\n", .{input_manager.get_scroll_offset()});
+        }
 
         c.glClearColor(0.2, 0.3, 0.3, 1.0);
         c.glClear(c.GL_COLOR_BUFFER_BIT);
