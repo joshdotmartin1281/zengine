@@ -6,6 +6,7 @@ const std = @import("std");
 const my_std = @import("../util/std_wrapper.zig");
 const math = @import("../util/math.zig");
 const c = @import("../window/window_builder.zig").c;
+const settings = @import("../settings.zig");
 
 ///Represents the state of the input
 pub const State = enum(u8) {
@@ -80,19 +81,19 @@ pub const InputManager = struct {
     key_bindings: std.HashMap(Action, KeyBinding, ActionHasher, 75),
 
     ///init the input manager mapping it to a hashmap.
-    pub fn init(allocator: std.mem.Allocator) !InputManager {
+    pub fn init(allocator: std.mem.Allocator, input_settings: settings.InputSettings) !InputManager {
         var manager = InputManager{
             .allocator = allocator,
             .key_bindings = std.HashMap(Action, KeyBinding, ActionHasher, 75)
                 .initContext(allocator, ActionHasher{}),
         };
 
-        try manager.key_bindings.put(.Forward, KeyBinding{ .binding_type = .Keyboard, .glfw_code = c.GLFW_KEY_W });
-        try manager.key_bindings.put(.Backward, KeyBinding{ .binding_type = .Keyboard, .glfw_code = c.GLFW_KEY_S });
-        try manager.key_bindings.put(.Left, KeyBinding{ .binding_type = .Keyboard, .glfw_code = c.GLFW_KEY_A });
-        try manager.key_bindings.put(.Right, KeyBinding{ .binding_type = .Keyboard, .glfw_code = c.GLFW_KEY_D });
-        try manager.key_bindings.put(.Jump, KeyBinding{ .binding_type = .Keyboard, .glfw_code = c.GLFW_KEY_SPACE });
-        try manager.key_bindings.put(.M1, KeyBinding{ .binding_type = .Mouse, .glfw_code = c.GLFW_MOUSE_BUTTON_1 });
+        for (input_settings.key_bindings) |json_binding| {
+            try manager.key_bindings.put(json_binding.action, KeyBinding{
+                .binding_type = json_binding.binding_type,
+                .glfw_code = json_binding.glfw_code,
+            });
+        }
 
         return manager;
     }

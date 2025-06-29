@@ -3,12 +3,17 @@ const std = @import("std");
 const window_builder = @import("window/window_builder.zig");
 const Shader = @import("graphics/shader.zig").Shader; // Import the Shader struct
 const InputManager = @import("input/input_manager.zig").InputManager;
+const settings = @import("settings.zig");
 const c = window_builder.c;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
+
+    const parsed_settings = try settings.loadSettings(allocator, "src/settings.json");
+    defer parsed_settings.deinit();
+    const app_settings = parsed_settings.value;
 
     var wb = try window_builder.WindowBuilder.init(allocator, 800, 600, "Zengine");
     defer wb.deinit();
@@ -20,7 +25,7 @@ pub fn main() !void {
         0.0, 0.5, 0.0, // Top
     };
 
-    var input_manager = try InputManager.init(allocator);
+    var input_manager = try InputManager.init(allocator, app_settings.input);
     defer input_manager.deinit();
     c.glfwSetWindowUserPointer(wb.handle, @as(*anyopaque, &input_manager));
     _ = c.glfwSetKeyCallback(wb.handle, InputManager.glfw_key_callback);

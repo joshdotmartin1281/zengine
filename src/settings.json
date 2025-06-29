@@ -1,0 +1,36 @@
+{
+  "input": {
+    "key_bindings": [
+      {
+        "action": "Forward",
+        "binding_type": "Keyboard",
+        "glfw_code": 87 
+      },
+      {
+        "action": "Backward",
+        "binding_type": "Keyboard",
+        "glfw_code": 83 
+      },
+      {
+        "action": "Left",
+        "binding_type": "Keyboard",
+        "glfw_code": 65 
+      },
+      {
+        "action": "Right",
+        "binding_type": "Keyboard",
+        "glfw_code": 68 
+      },
+      {
+        "action": "Jump",
+        "binding_type": "Keyboard",
+        "glfw_code": 32 
+      },
+      {
+        "action": "M1",
+        "binding_type": "Mouse",
+        "glfw_code": 0 
+      }
+    ]
+  }
+}
