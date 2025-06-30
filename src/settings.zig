@@ -1,26 +1,41 @@
 //- src/settings.zig
 const std = @import("std");
-const input = @import("input/input_manager.zig"); // Import your InputManager Action and Binding enums
+const input = @import("input/input_manager.zig");
 
 // Represents a single key binding within the JSON
 pub const JsonKeyBinding = struct {
-    action: input.Action, // Corresponds to your InputManager.Action enum
-    binding_type: input.Binding, // Corresponds to your InputManager.Binding enum
-    glfw_code: i32, // Use i32 because c.GLint is typically int (which is i32)
+    action: input.Action,
+    binding_type: input.Binding,
+    glfw_code: i32,
 };
 
 // Represents the overall structure for input settings in the JSON
 pub const InputSettings = struct {
-    key_bindings: []const JsonKeyBinding, // Array of key bindings
-    // You could add other input-related settings here, like mouse sensitivity,
-    // or device overrides as discussed previously, if you expand the JSON.
+    key_bindings: []const JsonKeyBinding,
+    //can add mouse support
 };
 
 // The top-level struct for your application settings
 pub const AppSettings = struct {
     input: InputSettings,
-    // Add other top-level settings sections here (e.g., graphics, audio)
+    window: WindowSettings,
 };
+
+pub const WindowSettings = struct {
+    width: u32,
+    height: u32,
+    fullscreen: bool,
+    target_refresh_rate_hz: u32,
+};
+
+pub fn parse(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    scanner: *std.json.TokenScanner,
+    options: std.json.ParseOptions,
+) std.json.ParseError!T {
+    return std.json.parseFromTokenSourceLeaky(T, allocator, scanner, options);
+}
 
 // Function to load and parse settings from a JSON file
 pub fn loadSettings(allocator: std.mem.Allocator, file_path: []const u8) !std.json.Parsed(AppSettings) {

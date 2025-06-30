@@ -24,6 +24,7 @@ pub const Action = enum(u8) {
     Left,
     Jump,
     M1,
+    F5,
 
     pub fn hash(self: Action) u64 {
         return @intFromEnum(self);
@@ -62,6 +63,8 @@ pub const InputError = error{
     InvalidAction,
     InputManagerNotSet,
     GLFWNotInitialized,
+    FileNotFound,
+    JsonParseError,
 };
 
 ///Input manager
@@ -88,14 +91,33 @@ pub const InputManager = struct {
                 .initContext(allocator, ActionHasher{}),
         };
 
-        for (input_settings.key_bindings) |json_binding| {
-            try manager.key_bindings.put(json_binding.action, KeyBinding{
+        try manager.populateBindings(input_settings.key_bindings);
+
+        return manager;
+    }
+
+    fn populateBindings(self: *InputManager, json_bindings: []const settings.JsonKeyBinding) !void {
+        self.key_bindings.clearAndFree();
+
+        for (json_bindings) |json_binding| {
+            try self.key_bindings.put(json_binding.action, KeyBinding{
                 .binding_type = json_binding.binding_type,
                 .glfw_code = json_binding.glfw_code,
             });
         }
+    }
 
-        return manager;
+    pub fn reload_from_json(self: *InputManager, file_path: []const u8) !void {
+        const parsed_settings = settings.loadSettings(self.allocator, file_path) catch |err| {
+            std.log.err("Error loading settings from '{s}': {}", .{ file_path, err });
+            return switch (err) {
+                error.FileNotFound => InputError.FileNotFound,
+                else => InputError.JsonParseError,
+            };
+        };
+        defer parsed_settings.deinit();
+        try self.populateBindings(parsed_settings.value.input.key_bindings);
+        std.debug.print("Key bindings reloaded successfully from '{s}'.\n", .{file_path});
     }
 
     /// deinit the input manager.

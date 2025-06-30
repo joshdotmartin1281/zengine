@@ -80,6 +80,15 @@ pub fn main() !void {
             std.debug.print("Forward action just released\n", .{});
         }
 
+        if (input_manager.is_action_pressed(.F5)) { // Check for the F5 action on the instance
+            std.debug.print("Reloading settings...\n", .{});
+            if (input_manager.reload_from_json("src/settings.json")) |_| {
+                // Success, message already printed
+            } else |err| {
+                std.debug.print("Error reloading settings: {}\n", .{err});
+            }
+        }
+
         //std.debug.print("Mouse moved x: {d}\n", .{input_manager.get_mouse_x()});
         //std.debug.print("Mouse moved y: {d}\n", .{input_manager.get_mouse_y()});
         if (input_manager.get_scroll_offset().x != input_manager.get_scroll_offset().y) {
