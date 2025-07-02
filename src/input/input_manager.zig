@@ -23,7 +23,11 @@ pub const Action = enum(u8) {
     Right,
     Left,
     Jump,
+    Crouch,
+    Sprint,
+    Pause,
     M1,
+    M2,
     F5,
 
     pub fn hash(self: Action) u64 {

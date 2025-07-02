@@ -72,8 +72,8 @@ pub fn main() !void {
             std.debug.print("Forward action just pressed\n", .{});
         }
 
-        if (input_manager.is_action_held(.M1)) {
-            std.debug.print("M1 action held\n", .{});
+        if (input_manager.is_action_pressed(.M2)) {
+            std.debug.print("M2 action pressed\n", .{});
         }
 
         if (input_manager.is_action_released(.Forward)) {

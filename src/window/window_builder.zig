@@ -25,6 +25,7 @@ pub const WindowBuilder = struct {
         c.glfwWindowHint(c.GLFW_OPENGL_PROFILE, c.GLFW_OPENGL_CORE_PROFILE);
         c.glfwWindowHint(c.GLFW_OPENGL_FORWARD_COMPAT, c.GL_TRUE);
 
+        //add json support for this later in a seperate function.
         const handle = c.glfwCreateWindow(width, height, title, null, null) orelse {
             c.glfwTerminate();
             return WindowError.WindowCreationFailed;
@@ -66,6 +67,9 @@ pub const WindowBuilder = struct {
         }
         c.glfwTerminate();
     }
+    //pub fn set_cursor_mode(self: *WindowBuilder, locked: bool) {}
+
+    //pub fn get_aspect_ratio(self: *const WindowBuilder) f32 {}
 
     pub fn shouldClose(self: @This()) bool {
         return c.glfwWindowShouldClose(self.handle) == c.GL_TRUE;

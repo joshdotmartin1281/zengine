@@ -18,7 +18,7 @@ pub const InputSettings = struct {
 // The top-level struct for your application settings
 pub const AppSettings = struct {
     input: InputSettings,
-    window: WindowSettings,
+    //window: WindowSettings,
 };
 
 pub const WindowSettings = struct {
@@ -27,15 +27,6 @@ pub const WindowSettings = struct {
     fullscreen: bool,
     target_refresh_rate_hz: u32,
 };
-
-pub fn parse(
-    comptime T: type,
-    allocator: std.mem.Allocator,
-    scanner: *std.json.TokenScanner,
-    options: std.json.ParseOptions,
-) std.json.ParseError!T {
-    return std.json.parseFromTokenSourceLeaky(T, allocator, scanner, options);
-}
 
 // Function to load and parse settings from a JSON file
 pub fn loadSettings(allocator: std.mem.Allocator, file_path: []const u8) !std.json.Parsed(AppSettings) {
