@@ -1,13 +1,17 @@
 .{
     .name = .zengine,
     .version = "0.1.0",
-    .minimum_zig_version = "0.14.0",
+    .minimum_zig_version = "0.15.2",
     .dependencies = .{
-    	//dependencies here    
+    	.zgl = .{
+            .url = "git+https://github.com/ziglbis/zgl.git#<COMMIT_HASH>",
+            .hash = "<GENERATED_HASH>",
+        },
     },
     .paths = .{
 	"src",
 	"build.zig",
+        "build.zig.zon",
     },
     .fingerprint = 0x8c1eeb3592bf122b,
 }
