@@ -1,81 +1,67 @@
 const std = @import("std");
-const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
 
-    const exe = b.addExecutable(.{
-        .name = "zengine",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
+    const BuildOption = struct {
+        step_name: []const u8,
+        description: []const u8,
+        optimize: std.builtin.OptimizeMode,
+        is_test: bool = false,
+    };
 
-    exe.linkLibC();
+    const options = [_]BuildOption{
+        .{ .step_name = "dev",     .description = "Benchmarking (.ReleaseSafe)", .optimize = .ReleaseSafe },
+        .{ .step_name = "release", .description = "Production (.ReleaseFast)",   .optimize = .ReleaseFast },
+        .{ .step_name = "test",    .description = "Exhaustive Testing (.Debug)", .optimize = .Debug, .is_test = true },
+    };
 
-    exe.addIncludePath(b.path("src/graphics/glad"));
-    exe.addIncludePath(b.path("src/KHR"));
+    for (options) |opt| {
+        const zgl_dep = b.dependency("zgl", .{
+            .target = target,
+            .optimize = opt.optimize,
+        });
 
-    exe.addCSourceFiles(.{
-        .files = &[_][]const u8{
-            "src/graphics/glad.c",
-        },
-    });
+        const run_step = b.step(opt.step_name, opt.description);
 
-    exe.linkSystemLibrary("glfw");
+        if (opt.is_test) {
+            const unit_tests = b.addTest(.{
+                .root_module = b.createModule(.{
+                    .root_source_file = b.path("src/main.zig"),
+                    .target = target,
+                    .optimize = opt.optimize,
+                }),
+            });
+            setupModule(unit_tests, zgl_dep, target);
+            run_step.dependOn(&b.addRunArtifact(unit_tests).step);
+        } else {
+            const exe = b.addExecutable(.{
+                .name = if (std.mem.eql(u8, opt.step_name, "dev")) "zengine-dev" else "zengine",
+                .root_module = b.createModule(.{
+                    .root_source_file = b.path("src/main.zig"),
+                    .target = target,
+                    .optimize = opt.optimize,
+                }),
+            });
+            setupModule(exe, zgl_dep, target);
+            b.installArtifact(exe); 
+            run_step.dependOn(&b.addRunArtifact(exe).step);
+        }
+    }
+}
 
-    switch (builtin.os.tag) {
-        .linux => {
-            exe.linkSystemLibrary("GL");
-        },
-        .windows => {
-            exe.linkSystemLibrary("opengl32");
-        },
+fn setupModule(compile: *std.Build.Step.Compile, zgl_dep: *std.Build.Dependency, target: std.Build.ResolvedTarget) void {
+    compile.root_module.addImport("zgl", zgl_dep.module("zgl"));
+    compile.linkSystemLibrary("glfw");
+
+    const os_tag = target.result.os.tag;
+    switch (os_tag) {
+        .linux => compile.linkSystemLibrary("GL"),
+        .windows => compile.linkSystemLibrary("opengl32"),
         .macos => {
-            exe.linkFramework("OpenGL");
-            exe.linkFramework("Cocoa");
+            compile.linkFramework("OpenGL");
+            compile.linkFramework("Cocoa");
         },
         else => {},
     }
-
-    b.installArtifact(exe);
-
-    const run_cmd = b.addRunArtifact(exe);
-    const run_step = b.step("run", "Run the application");
-    run_step.dependOn(&run_cmd.step);
-
-    const tests = b.addTest(.{
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    tests.linkLibC();
-    tests.addIncludePath(b.path("src/graphics/glad"));
-    tests.addIncludePath(b.path("src/KHR"));
-    tests.addCSourceFiles(.{
-        .files = &[_][]const u8{
-            "src/graphics/glad.c",
-        },
-    });
-    tests.linkSystemLibrary("glfw");
-
-    switch (builtin.os.tag) {
-        .linux => {
-            tests.linkSystemLibrary("GL");
-        },
-        .windows => {
-            tests.linkSystemLibrary("opengl32");
-        },
-        .macos => {
-            tests.linkFramework("OpenGL");
-            tests.linkFramework("Cocoa");
-        },
-        else => {},
-    }
-
-    const test_run_cmd = b.addRunArtifact(tests);
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&test_run_cmd.step);
 }
