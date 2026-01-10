@@ -1,0 +1,32 @@
+<type>(<scope>): <subject>
+
+# Type must be one of:
+# feat: A new feature or enhancement.
+# fix: A bug fix.
+# docs: Documentation changes only.
+# style: Formatting, missing semicolons, whitespace, etc.
+# refactor: Code changes that neither fix a bug nor add a feature.
+# test: Adding or correcting tests.
+# chore: Routine tasks, updating build scripts, package managers, etc.
+# Subject line must be 50 characters max.
+
+# Body:
+# Explain WHAT and WHY, not HOW. Wrap at 72 characters.
+# Separate paragraphs with a blank line.
+
+# Footer:
+# BREAKING CHANGE: <explanation>
+# Closes #<issue-number>
+
+# EXAMPLE:
+#   feat(api): Implement secure password hashing with Argon2
+#
+#   This change updates all user authentication routes to use the modern
+#   Argon2 hashing algorithm instead of the legacy bcrypt implementation.
+#
+#   Argon2 provides superior resistance against brute-force and side-channel
+#   attacks, improving the overall security posture of the application.
+#   This required updating the `User` model's pre-save hook and adding the
+#   new hashing library to dependencies.
+# 
+#   Closes #148 
