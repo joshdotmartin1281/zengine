@@ -3,65 +3,87 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
 
-    const BuildOption = struct {
-        step_name: []const u8,
-        description: []const u8,
-        optimize: std.builtin.OptimizeMode,
-        is_test: bool = false,
-    };
+    const dev_exe = createExe(b, target, "dev-app", .Debug);
+    const run_dev = b.addRunArtifact(dev_exe);
+    const dev_step = b.step("dev", "Run debug app");
+    dev_step.dependOn(&run_dev.step);
 
-    const options = [_]BuildOption{
-        .{ .step_name = "dev",     .description = "Benchmarking (.ReleaseSafe)", .optimize = .ReleaseSafe },
-        .{ .step_name = "release", .description = "Production (.ReleaseFast)",   .optimize = .ReleaseFast },
-        .{ .step_name = "test",    .description = "Exhaustive Testing (.Debug)", .optimize = .Debug, .is_test = true },
-    };
+    const rel_exe = createExe(b, target, "app", .ReleaseFast);
+    const install_rel = b.addInstallArtifact(rel_exe, .{});
+    const release_step = b.step("release", "Build release binary");
+    release_step.dependOn(&install_rel.step);
 
-    for (options) |opt| {
-        const zgl_dep = b.dependency("zgl", .{
-            .target = target,
-            .optimize = opt.optimize,
-        });
-
-        const run_step = b.step(opt.step_name, opt.description);
-
-        if (opt.is_test) {
-            const unit_tests = b.addTest(.{
-                .root_module = b.createModule(.{
-                    .root_source_file = b.path("src/main.zig"),
-                    .target = target,
-                    .optimize = opt.optimize,
-                }),
-            });
-            setupModule(unit_tests, zgl_dep, target);
-            run_step.dependOn(&b.addRunArtifact(unit_tests).step);
-        } else {
-            const exe = b.addExecutable(.{
-                .name = if (std.mem.eql(u8, opt.step_name, "dev")) "zengine-dev" else "zengine",
-                .root_module = b.createModule(.{
-                    .root_source_file = b.path("src/main.zig"),
-                    .target = target,
-                    .optimize = opt.optimize,
-                }),
-            });
-            setupModule(exe, zgl_dep, target);
-            b.installArtifact(exe); 
-            run_step.dependOn(&b.addRunArtifact(exe).step);
-        }
-    }
+    const test_step = b.step("test", "Run standard tests");
+    const standard_test = createTest(b, target, .Debug);
+    test_step.dependOn(&b.addRunArtifact(standard_test).step);
 }
 
-fn setupModule(compile: *std.Build.Step.Compile, zgl_dep: *std.Build.Dependency, target: std.Build.ResolvedTarget) void {
-    compile.root_module.addImport("zgl", zgl_dep.module("zgl"));
+fn createExe(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    name: []const u8,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Step.Compile {
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+            .code_model = .small,
+        }),
+    });
+
+    setupModule(exe);
+    return exe;
+}
+
+fn createTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Step.Compile {
+    const tester = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+
+    setupModule(tester);
+    return tester;
+}
+
+fn setupModule(compile: *std.Build.Step.Compile) void {
+    const b = compile.step.owner;
+
+    compile.linkLibC();
+    compile.addIncludePath(b.path("deps/glad/include"));
+    compile.addCSourceFile(.{
+        .file = b.path("deps/glad/src/glad.c"),
+        .flags = &[_][]const u8{"-std=c99"},
+    });
+
     compile.linkSystemLibrary("glfw");
 
-    const os_tag = target.result.os.tag;
-    switch (os_tag) {
-        .linux => compile.linkSystemLibrary("GL"),
-        .windows => compile.linkSystemLibrary("opengl32"),
+    const target = compile.root_module.resolved_target.?;
+    switch (target.result.os.tag) {
+        .linux => {
+            compile.linkSystemLibrary("GL");
+            compile.linkSystemLibrary("X11");
+        },
+        .windows => {
+            compile.linkSystemLibrary("opengl32");
+            compile.linkSystemLibrary("gdi32");
+        },
         .macos => {
             compile.linkFramework("OpenGL");
             compile.linkFramework("Cocoa");
+            compile.linkFramework("IOKit");
+            compile.linkFramework("CoreVideo");
         },
         else => {},
     }
 }
+

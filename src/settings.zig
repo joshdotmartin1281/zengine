@@ -1,24 +1,11 @@
 //- src/settings.zig
 const std = @import("std");
-const input = @import("input/input_manager.zig");
 
-// Represents a single key binding within the JSON
-pub const JsonKeyBinding = struct {
-    action: input.Action,
-    binding_type: input.Binding,
-    glfw_code: i32,
-};
-
-// Represents the overall structure for input settings in the JSON
-pub const InputSettings = struct {
-    key_bindings: []const JsonKeyBinding,
-    //can add mouse support
-};
-
-// The top-level struct for your application settings
 pub const AppSettings = struct {
-    input: InputSettings,
-    //window: WindowSettings,
+    title: [:0]const u8,
+    window: WindowSettings,
+    keys: KeySettings,
+    mouse: MouseSettings,
 };
 
 pub const WindowSettings = struct {
@@ -26,6 +13,14 @@ pub const WindowSettings = struct {
     height: u32,
     fullscreen: bool,
     target_refresh_rate_hz: u32,
+};
+
+pub const KeySettings = struct {
+    glfw_code: u32, 
+};
+
+pub const MouseSettings = struct {
+    glfw_code: u32,
 };
 
 // Function to load and parse settings from a JSON file
@@ -43,3 +38,4 @@ pub fn loadSettings(allocator: std.mem.Allocator, file_path: []const u8) !std.js
 
     return parsed_settings;
 }
+

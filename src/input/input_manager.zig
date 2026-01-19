@@ -3,8 +3,6 @@
 //- maps them to the glfw code.
 
 const std = @import("std");
-const my_std = @import("../util/std_wrapper.zig");
-const math = @import("../util/math.zig");
 const c = @import("../window/window_builder.zig").c;
 const settings = @import("../settings.zig");
 
@@ -227,7 +225,7 @@ pub const InputManager = struct {
         _: c_int,
         action: c_int,
         _: c_int,
-    ) callconv(.C) void {
+    ) callconv(.c) void {
         const input_manager = get_input_manager(window);
 
         const key_id: usize = @intCast(key);
@@ -255,7 +253,7 @@ pub const InputManager = struct {
         button: c_int,
         action: c_int,
         _: c_int,
-    ) callconv(.C) void {
+    ) callconv(.c) void {
         const input_manager = get_input_manager(window);
 
         const button_id: usize = @intCast(button);
@@ -279,7 +277,7 @@ pub const InputManager = struct {
         window: ?*c.GLFWwindow,
         xpos: f64,
         ypos: f64,
-    ) callconv(.C) void {
+    ) callconv(.c) void {
         const input_manager = get_input_manager(window);
 
         input_manager.mouse_x = xpos;
@@ -290,7 +288,7 @@ pub const InputManager = struct {
         window: ?*c.GLFWwindow,
         xoffset: f64,
         yoffset: f64,
-    ) callconv(.C) void {
+    ) callconv(.c) void {
         const input_manager = get_input_manager(window);
 
         input_manager.scroll_x_offset += xoffset;
