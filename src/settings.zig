@@ -4,15 +4,17 @@ const std = @import("std");
 pub const AppSettings = struct {
     title: [:0]const u8,
     window: WindowSettings,
-    keys: KeySettings,
-    mouse: MouseSettings,
+    //keys: KeySettings,
+    //mouse: MouseSettings,
 };
 
 pub const WindowSettings = struct {
     width: u32,
     height: u32,
     fullscreen: bool,
-    target_refresh_rate_hz: u32,
+    refresh_rate: u32,
+    max_fps: u32,
+    vsync: bool,
 };
 
 pub const KeySettings = struct {

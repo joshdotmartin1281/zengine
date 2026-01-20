@@ -1,6 +1,7 @@
 const std = @import("std");
 const wb = @import("window/window.zig");
 const zn = @import("zengine.zig");
+const t = @import("util/time.zig");
 const c = wb.c; 
 
 pub fn main() !void {
@@ -8,17 +9,10 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
     
-    var engine = try zn.zengine.init(allocator);
+    var engine = try zn.ZEngine.init(allocator);
     defer engine.deinit();
-
-    c.glClearColor(0.2, 0.3, 0.3, 1.0);
-
-    while (!engine.shouldClose()) {
-        engine.beginFrame();
-
-        //engine.update();
-        //engine.physics();
-
-        engine.endFrame();
+    
+    while (engine.update()) {
+        engine.draw();
     }
 }

@@ -3,7 +3,7 @@
 //- maps them to the glfw code.
 
 const std = @import("std");
-const c = @import("../window/window_builder.zig").c;
+const c = @import("../window/window.zig").c;
 const settings = @import("../settings.zig");
 
 ///Represents the state of the input
