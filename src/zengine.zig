@@ -11,11 +11,6 @@ pub const ZEngine = struct {
     settings: std.json.Parsed(settings.AppSettings),
     window: wb.Window,
     timer: time.Timer,
-    max_fps: u32,
-    min_frame_time: u64,
-
-    accumulator: f32 = 0.0,
-    const target_dt: f32 = 1.0 / 60.0;
 
     pub fn init(allocator: std.mem.Allocator) !ZEngine {
         const parsed_settings = try settings.loadSettings(allocator, "./src/settings.json");
@@ -30,19 +25,11 @@ pub const ZEngine = struct {
             .vsync = app_cfg.window.vsync,
         });
        
-        const max_fps = app_cfg.window.max_fps;
-        const ns_per_frame = if (max_fps > 0)
-            @as(u64, @intFromFloat(@as(f64, std.time.ns_per_s) / @as(f64, @floatFromInt(max_fps))))
-        else
-            0;
-
         return ZEngine {
             .allocator = allocator,
             .settings = parsed_settings,
             .window = window_instance,
-            .timer = time.Timer.init(),
-            .max_fps = max_fps,
-            .min_frame_time = ns_per_frame,
+            .timer = try time.Timer.init(60.0, app_cfg.window.max_fps),
         };
     }
 
@@ -57,11 +44,9 @@ pub const ZEngine = struct {
         self.window.pollEvents();
 
         self.timer.tick();
-        self.accumulator += self.timer.delta_time;
 
-        while (self.accumulator >= target_dt) {
-            self.physicsTick(target_dt);
-            self.accumulator -= target_dt;
+        while (self.timer.consumeStep()) {
+            self.physicsTick(self.timer.target_dt);
         }
 
         return true;
@@ -73,7 +58,7 @@ pub const ZEngine = struct {
     }
 
     pub fn draw(self: *ZEngine) void {
-        const alpha = self.accumulator / target_dt;
+        const alpha = self.timer.getAlpha();
         _ = alpha;
 
         c.glClearColor(0.1, 0.1, 0.1, 1.0);
@@ -82,13 +67,6 @@ pub const ZEngine = struct {
         //render calls here later.
 
         self.window.swapBuffers();
-        if (self.min_frame_time > 0) {
-            const now = @as(u64, @intFromFloat(c.glfwGetTime() * 1e9));
-            const start = @as(u64, @intFromFloat(self.timer.last_frame * 1e9));
-            const elapsed = now - start;
-            if (elapsed < self.min_frame_time) {
-                std.Thread.sleep(self.min_frame_time - elapsed);
-            }
-        }
+        self.timer.capFrameRate();
     }
 };
