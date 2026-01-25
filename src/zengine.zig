@@ -64,7 +64,7 @@ pub const ZEngine = struct {
         c.glClearColor(0.1, 0.1, 0.1, 1.0);
         c.glClear(c.GL_COLOR_BUFFER_BIT);
         
-        //render calls here later.
+        //render here
 
         self.window.swapBuffers();
         self.timer.capFrameRate();
