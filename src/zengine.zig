@@ -24,12 +24,18 @@ pub const ZEngine = struct {
             .refresh_rate = app_cfg.window.refresh_rate,
             .vsync = app_cfg.window.vsync,
         });
+
+        const timer_config = time.TimerConfig {
+            .target_ups = 60.0,
+            .max_fps = app_cfg.window.max_fps,
+            .clock = .{ .time_scale = 1.0, .max_delta = 0.1},
+        };
        
         return ZEngine {
             .allocator = allocator,
             .settings = parsed_settings,
             .window = window_instance,
-            .timer = try time.Timer.init(60.0, app_cfg.window.max_fps),
+            .timer = try time.Timer.init(timer_config),
         };
     }
 
