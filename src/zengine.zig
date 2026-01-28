@@ -40,12 +40,12 @@ pub const ZEngine = struct {
 
     pub fn update(self: *ZEngine) bool {
         if (self.window.shouldClose()) return false;
-
         self.window.pollEvents();
 
-        self.timer.tick();
+        self.timer.update();
 
-        while (self.timer.consumeStep()) {
+        var steps: u32 = 0;
+        while (self.timer.consumeStep() and steps < 8) : (steps += 1) {
             self.physicsTick(self.timer.target_dt);
         }
 
