@@ -1,4 +1,4 @@
-//- src/settings.zig
+//- src/settings/settings.zig
 const std = @import("std");
 
 pub const AppSettings = struct {
@@ -18,7 +18,7 @@ pub const WindowSettings = struct {
 };
 
 pub const KeySettings = struct {
-    glfw_code: u32, 
+    glfw_code: u32,
 };
 
 pub const MouseSettings = struct {
@@ -40,4 +40,3 @@ pub fn loadSettings(allocator: std.mem.Allocator, file_path: []const u8) !std.js
 
     return parsed_settings;
 }
-

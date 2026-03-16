@@ -29,4 +29,3 @@ pub const Clock = struct {
         return dt * config.time_scale;
     }
 };
-

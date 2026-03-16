@@ -34,12 +34,7 @@ pub const Window = struct {
             monitor = c.glfwGetPrimaryMonitor();
         }
 
-        const handle = c.glfwCreateWindow(@intCast(config.width),
-            @intCast(config.height), 
-            config.title, 
-            monitor, 
-            null
-        ) orelse {
+        const handle = c.glfwCreateWindow(@intCast(config.width), @intCast(config.height), config.title, monitor, null) orelse {
             c.glfwTerminate();
             return WindowError.WindowCreationFailed;
         };
@@ -59,6 +54,13 @@ pub const Window = struct {
     pub fn deinit(self: *Window) void {
         c.glfwDestroyWindow(self.handle);
         c.glfwTerminate();
+    }
+
+    pub fn aspectRatio(self: *const Window) f32 {
+        var w: c_int = 0;
+        var h: c_int = 0;
+        c.glfwGetFramebufferSize(self.handle, &w, &h);
+        return @as(f32, @floatFromInt(w)) / @as(f32, @floatFromInt(h));
     }
 
     pub fn shouldClose(self: *const Window) bool {

@@ -4,7 +4,7 @@
 
 const std = @import("std");
 const c = @import("../window/window.zig").c;
-const settings = @import("../settings.zig");
+const settings = @import("../settings/settings.zig");
 
 ///Represents the state of the input
 pub const State = enum(u8) {

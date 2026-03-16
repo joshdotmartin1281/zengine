@@ -57,33 +57,125 @@ fn createTest(
 
 fn setupModule(compile: *std.Build.Step.Compile) void {
     const b = compile.step.owner;
+    const target = compile.root_module.resolved_target.?;
+    const optimize = compile.root_module.optimize.?;
 
     compile.linkLibC();
+
     compile.addIncludePath(b.path("deps/glad/include"));
     compile.addCSourceFile(.{
         .file = b.path("deps/glad/src/glad.c"),
         .flags = &[_][]const u8{"-std=c99"},
     });
 
-    compile.linkSystemLibrary("glfw");
+    const glfw = addGLFW(b, target, optimize);
 
-    const target = compile.root_module.resolved_target.?;
+    if (target.result.os.tag == .windows) {
+        glfw.linkSystemLibrary("gdi32");
+        glfw.linkSystemLibrary("user32");
+        glfw.linkSystemLibrary("shell32");
+        glfw.linkSystemLibrary("opengl32");
+        glfw.linkSystemLibrary("dwmapi");
+    }
+
+    compile.linkLibrary(glfw);
+    compile.addIncludePath(b.path("deps/glfw-3.4/include"));
+
     switch (target.result.os.tag) {
         .linux => {
             compile.linkSystemLibrary("GL");
             compile.linkSystemLibrary("X11");
+            compile.linkSystemLibrary("Xi");
+            compile.linkSystemLibrary("Xcursor");
+            compile.linkSystemLibrary("Xrandr");
+            compile.linkSystemLibrary("m");
+            compile.linkSystemLibrary("dl");
+            compile.linkSystemLibrary("pthread");
         },
         .windows => {
             compile.linkSystemLibrary("opengl32");
             compile.linkSystemLibrary("gdi32");
-        },
-        .macos => {
-            compile.linkFramework("OpenGL");
-            compile.linkFramework("Cocoa");
-            compile.linkFramework("IOKit");
-            compile.linkFramework("CoreVideo");
+            compile.linkSystemLibrary("user32");
+            compile.linkSystemLibrary("shell32");
+            compile.linkSystemLibrary("dwmapi");
         },
         else => {},
     }
 }
 
+fn addGLFW(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Step.Compile {
+    const glfw = b.addStaticLibrary(.{
+        .name = "glfw",
+        .target = target,
+        .optimize = optimize,
+    });
+
+    glfw.linkLibC();
+    glfw.addIncludePath(b.path("deps/glfw-3.4/include"));
+
+    const common_sources = [_][]const u8{
+        "context.c",
+        "init.c",
+        "input.c",
+        "monitor.c",
+        "platform.c",
+        "vulkan.c",
+        "window.c",
+        "egl_context.c",
+        "osmesa_context.c",
+        "null_init.c",
+        "null_monitor.c",
+        "null_window.c",
+        "null_joystick.c",
+    };
+
+    glfw.addCSourceFiles(.{
+        .root = b.path("deps/glfw-3.4/src"),
+        .files = &common_sources,
+    });
+
+    switch (target.result.os.tag) {
+        .windows => {
+            glfw.root_module.addCMacro("_GLFW_WIN32", "1");
+            glfw.root_module.addCMacro("_GLFW_WGL", "1");
+            glfw.addCSourceFiles(.{
+                .root = b.path("deps/glfw-3.4/src"),
+                .files = &[_][]const u8{
+                    "win32_init.c",
+                    "win32_joystick.c",
+                    "win32_monitor.c",
+                    "win32_time.c",
+                    "win32_thread.c",
+                    "win32_window.c",
+                    "win32_module.c",
+                    "wgl_context.c",
+                },
+            });
+        },
+        .linux => {
+            glfw.root_module.addCMacro("_GLFW_X11", "1");
+            glfw.addCSourceFiles(.{
+                .root = b.path("deps/glfw-3.4/src"),
+                .files = &[_][]const u8{
+                    "x11_init.c",
+                    "x11_monitor.c",
+                    "x11_window.c",
+                    "xkb_unicode.c",
+                    "posix_time.c",
+                    "posix_thread.c",
+                    "posix_module.c",
+                    "posix_poll.c",
+                    "linux_joystick.c",
+                    "glx_context.c",
+                },
+            });
+        },
+        else => {},
+    }
+
+    return glfw;
+}
