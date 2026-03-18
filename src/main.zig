@@ -1,7 +1,8 @@
 const std = @import("std");
-const wb = @import("window/window.zig");
+const wb = @import("platform/window.zig");
+const in = @import("platform/input/input.zig");
 const zn = @import("zengine.zig");
-const t = @import("util/time.zig");
+const t = @import("core/time.zig");
 const c = wb.c;
 
 pub fn main() !void {
@@ -9,7 +10,9 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    var engine = try zn.ZEngine.init(allocator);
+    var engine = try zn.ZEngine.init(allocator, .{});
+    engine.window.setUserPointer(&engine.input);
+    engine.window.registerCallbacks(in.InputManager);
     defer engine.deinit();
 
     while (engine.update()) {

@@ -2,7 +2,7 @@
 const std = @import("std");
 const Clock = @import("./clock.zig").Clock;
 const ClockConfig = @import("./clock.zig").ClockConfig;
-const c = @import("../window/window.zig").c;
+const c = @import("../platform/window.zig").c;
 
 pub const TimerConfig = struct { target_ups: f32 = 60.0, max_fps: u32 = 0, clock: ClockConfig = .{} };
 

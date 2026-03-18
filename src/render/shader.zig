@@ -1,5 +1,5 @@
 const std = @import("std");
-const c = @import("../window/window.zig").c;
+const c = @import("../platform/window.zig").c;
 
 pub const Shader = struct {
     id: c.GLuint,

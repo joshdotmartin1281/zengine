@@ -55,12 +55,31 @@ pub const Window = struct {
         c.glfwDestroyWindow(self.handle);
         c.glfwTerminate();
     }
+    
+    pub fn setUserPointer(self: *Window, ptr: *anyopaque) void {
+        _ = c.glfwSetWindowUserPointer(self.handle, ptr);
+    }
+
+    pub fn registerCallbacks(self: *Window, comptime T: type) void {
+        _ = c.glfwSetKeyCallback(self.handle, T.glfw_key_callback);
+        _ = c.glfwSetMouseButtonCallback(self.handle, T.glfw_mouse_callback);
+        _ = c.glfwSetCursorPosCallback(self.handle, T.glfw_cursor_position_callback);
+        _ = c.glfwSetScrollCallback(self.handle, T.glfw_scroll_callback);
+    }
 
     pub fn aspectRatio(self: *const Window) f32 {
         var w: c_int = 0;
         var h: c_int = 0;
         c.glfwGetFramebufferSize(self.handle, &w, &h);
         return @as(f32, @floatFromInt(w)) / @as(f32, @floatFromInt(h));
+    }
+
+    pub fn lockCursor(self: *Window) void {
+        _ = c.glfwSetInputMode(self.handle, c.GLFW_CURSOR, c.GLFW_CURSOR_DISABLED);
+    }
+
+    pub fn unlockCursor(self: *Window) void {
+        _ = c.glfwSetInputMode(self.handle, c.GLFW_CURSOR, c.GLFW_CURSOR_NORMAL);
     }
 
     pub fn shouldClose(self: *const Window) bool {

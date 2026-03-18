@@ -1,47 +1,55 @@
 const std = @import("std");
-const settings = @import("settings/settings.zig");
-const wb = @import("window/window.zig");
-const time = @import("util/time.zig");
-const input = @import("input/input_manager.zig");
-const Shader = @import("graphics/shader.zig").Shader;
-const Triangle = @import("graphics/triangle.zig").Triangle;
-const Camera = @import("graphics/camera.zig").Camera;
+const builtin = @import("builtin");
+const config = @import("core/config.zig");
+const wb = @import("platform/window.zig");
+const time = @import("core/time.zig");
+const input = @import("platform/input/input.zig");
+const Shader = @import("render/shader.zig").Shader;
+const Triangle = @import("render/triangle.zig").Triangle;
+const Camera = @import("render/camera.zig").Camera;
+const Vec3 = @import("math/vector.zig").Vector(3, f32);
 const c = wb.c;
 
 pub const ZEngine = struct {
     allocator: std.mem.Allocator,
-    settings: std.json.Parsed(settings.AppSettings),
+    config: std.json.Parsed(config.Config),
     window: wb.Window,
     timer: time.Timer,
+    input: input.InputManager,
     shader: Shader,
     triangle: Triangle,
     camera: Camera,
 
-    pub fn init(allocator: std.mem.Allocator) !ZEngine {
-        const parsed_settings = try settings.loadSettings(allocator, "./src/settings/settings.json");
-        const app_cfg = parsed_settings.value;
+    pub fn init(allocator: std.mem.Allocator, base: config.Config) !ZEngine {
+        const parsed = try config.load(allocator, base, "./src/core/settings.json");
+        const cfg = parsed.value;
+
         const window_instance = try wb.Window.init(allocator, .{
-            .title = app_cfg.title,
-            .width = app_cfg.window.width,
-            .height = app_cfg.window.height,
-            .fullscreen = app_cfg.window.fullscreen,
-            .refresh_rate = app_cfg.window.refresh_rate,
-            .vsync = app_cfg.window.vsync,
+            .title = cfg.title,
+            .width = cfg.window.width,
+            .height = cfg.window.height,
+            .fullscreen = cfg.window.fullscreen,
+            .refresh_rate = cfg.window.refresh_rate,
+            .vsync = cfg.window.vsync,
         });
+
+        const input_manager = try input.InputManager.init(allocator, cfg.input);
+
         const timer_config = time.TimerConfig{
             .target_ups = 60.0,
-            .max_fps = app_cfg.window.max_fps,
+            .max_fps = cfg.window.max_fps,
             .clock = .{ .time_scale = 1.0, .max_delta = 0.1 },
         };
 
-        const vert_src: [*c]const u8 = @embedFile("shaders/vert.glsl");
-        const frag_src: [*c]const u8 = @embedFile("shaders/frag.glsl");
+        const vert_src: [*c]const u8 = @embedFile("render/shader/vert.glsl");
+        const frag_src: [*c]const u8 = @embedFile("render/shader/frag.glsl");
 
         return ZEngine{
             .allocator = allocator,
-            .settings = parsed_settings,
+            .config = parsed,
             .window = window_instance,
             .timer = try time.Timer.init(timer_config),
+            .input = input_manager,
             .shader = try Shader.init(vert_src, frag_src),
             .triangle = Triangle.init(),
             .camera = Camera.init(),
@@ -51,41 +59,93 @@ pub const ZEngine = struct {
     pub fn deinit(self: *ZEngine) void {
         self.shader.deinit();
         self.triangle.deinit();
+        self.input.deinit();
         self.window.deinit();
-        self.settings.deinit();
+        self.config.deinit();
     }
 
     pub fn update(self: *ZEngine) bool {
         if (self.window.shouldClose()) return false;
         self.window.pollEvents();
+        self.input.update();
         self.timer.update();
+        if (builtin.mode == .Debug and self.input.isKeyPressed(c.GLFW_KEY_F5)) {
+            self.reloadConfig();
+        }
+
         var steps: u32 = 0;
         while (self.timer.consumeStep() and steps < 8) : (steps += 1) {
             self.physicsTick(self.timer.target_dt);
         }
+
         return true;
     }
 
+    fn reloadConfig(self: *ZEngine) void {
+        const reparsed = config.load(self.allocator, self.config.value, "./src/core/settings.json") catch |err| {
+            std.log.warn("Config reload failed: {}", .{err});
+            return;
+        };
+        self.config.deinit();
+        self.config = reparsed;
+        self.input.reload(self.config.value.input) catch |err| {
+            std.log.warn("Input reload failed: {}", .{err});
+        };
+        std.log.info("Config reloaded.", .{});
+    }
+
     fn physicsTick(self: *ZEngine, dt: f32) void {
-        self.camera.position.data[0] += 0.5 * dt;
-        self.camera.position.data[1] += 0.5 * dt;
-        self.camera.position.data[2] += 0.5 * dt;
+        var speed: f32 = 0.0;
+        if (self.input.isActionHeld(.Sprint)) {
+            speed = 2.0;
+        } else {
+            speed = 1.0;
+        }
+        const sensitivity = 0.1;
+
+        const delta = self.input.getMouseDelta();
+        const dyaw: f32 = @floatCast(delta.dx * sensitivity * dt);
+        const dpitch: f32 = @floatCast(-delta.dy * sensitivity * dt);
+        self.camera.look(dyaw, dpitch);
+
+        const forward = self.camera.forward();
+        const right = forward.cross(Vec3.init(.{ 0, 1, 0 })).normalize();
+        if (self.input.isActionPressed(.Pause)) {
+            self.window.unlockCursor();
+        }
+        if (self.input.isActionPressed(.M1)) {
+            self.window.lockCursor();
+        }
+        if (self.input.isActionHeld(.Forward)) {
+            self.camera.move(forward.scale(speed * dt));
+        }
+        if (self.input.isActionHeld(.Backward)) {
+            self.camera.move(forward.scale(-speed * dt));
+        }
+        if (self.input.isActionHeld(.Left)) {
+            self.camera.move(right.scale(-speed * dt));
+        }
+        if (self.input.isActionHeld(.Right)) {
+            self.camera.move(right.scale(speed * dt));
+        }
+        if (self.input.isActionHeld(.Jump)) {
+            self.camera.move(Vec3.init(.{ 0, speed * dt, 0 }));
+        }
+        if (self.input.isActionHeld(.Crouch)) {
+            self.camera.move(Vec3.init(.{ 0, -speed * dt, 0 }));
+        }
     }
 
     pub fn draw(self: *ZEngine) void {
         const aspect = self.window.aspectRatio();
-
         const view = self.camera.viewMatrix();
         const proj = self.camera.projectionMatrix(aspect);
         const vp = proj.mul(view);
-
         c.glClearColor(0.1, 0.1, 0.1, 1.0);
         c.glClear(c.GL_COLOR_BUFFER_BIT);
-
         self.shader.bind();
         self.shader.setMat4("vp", vp);
         self.triangle.draw();
-
         self.window.swapBuffers();
         self.timer.capFrameRate();
     }

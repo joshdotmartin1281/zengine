@@ -1,4 +1,3 @@
-//- src/util/vector.zig
 const std = @import("std");
 const testing = std.testing;
 
@@ -53,6 +52,10 @@ pub fn Vector(comptime size: usize, comptime T: type) type {
             result[3] = 0;
 
             return .{ .data = result };
+        }
+
+        pub fn scale(a: Self, scalar: T) Self {
+            return .{ .data = a.data * @as(VecType, @splat(scalar)) };
         }
 
         pub fn normalize(a: Self) Self {

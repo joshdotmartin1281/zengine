@@ -1,7 +1,7 @@
 //- src/graphics/camera.zig
 const std = @import("std");
-const Vec3 = @import("../util/math/vector.zig").Vector(3, f32);
-const Mat4f = @import("../util/math/mat4.zig").Mat4(f32);
+const Vec3 = @import("../math/vector.zig").Vector(3, f32);
+const Mat4f = @import("../math/mat4.zig").Mat4(f32);
 
 pub const Camera = struct {
     position: Vec3,

@@ -1,4 +1,4 @@
-const c = @import("../window/window.zig").c;
+const c = @import("../platform/window.zig").c;
 
 pub const Triangle = struct {
     vao: c.GLuint,
