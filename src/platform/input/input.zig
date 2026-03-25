@@ -110,7 +110,7 @@ pub const InputManager = struct {
             },
         };
     }
-    
+
     pub fn isKeyPressed(self: *const InputManager, glfw_code: c_int) bool {
         if (glfw_code < 0 or glfw_code >= self.keys.len) return false;
         return self.keys[@intCast(glfw_code)] == .Pressed;

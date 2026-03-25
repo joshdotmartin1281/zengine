@@ -1,5 +1,4 @@
 const std = @import("std");
-
 pub const c = @cImport({
     @cInclude("glad/glad.h");
     @cInclude("GLFW/glfw3.h");
@@ -20,21 +19,24 @@ pub const Window = struct {
 
     pub fn init(allocator: std.mem.Allocator, config: WindowConfig) !Window {
         if (c.glfwInit() == c.GLFW_FALSE) return WindowError.GlfWInitFailed;
-
         c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MAJOR, 3);
         c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MINOR, 3);
         c.glfwWindowHint(c.GLFW_OPENGL_PROFILE, c.GLFW_OPENGL_CORE_PROFILE);
         c.glfwWindowHint(c.GLFW_COCOA_RETINA_FRAMEBUFFER, c.GLFW_TRUE);
-
         c.glfwWindowHint(c.GLFW_REFRESH_RATE, @intCast(config.refresh_rate));
 
         var monitor: ?*c.GLFWmonitor = null;
-
         if (config.fullscreen) {
             monitor = c.glfwGetPrimaryMonitor();
         }
 
-        const handle = c.glfwCreateWindow(@intCast(config.width), @intCast(config.height), config.title, monitor, null) orelse {
+        const handle = c.glfwCreateWindow(
+            @intCast(config.width),
+            @intCast(config.height),
+            config.title,
+            monitor,
+            null,
+        ) orelse {
             c.glfwTerminate();
             return WindowError.WindowCreationFailed;
         };
@@ -48,6 +50,13 @@ pub const Window = struct {
             return WindowError.GladLoadFailed;
         }
 
+        // Set initial viewport
+        c.glViewport(0, 0, @intCast(config.width), @intCast(config.height));
+
+        // Register framebuffer resize callback immediately — this is a
+        // window concern, not an input concern, so it lives here
+        _ = c.glfwSetFramebufferSizeCallback(handle, glfw_framebuffer_size_callback);
+
         return Window{ .handle = handle, .allocator = allocator };
     }
 
@@ -55,7 +64,7 @@ pub const Window = struct {
         c.glfwDestroyWindow(self.handle);
         c.glfwTerminate();
     }
-    
+
     pub fn setUserPointer(self: *Window, ptr: *anyopaque) void {
         _ = c.glfwSetWindowUserPointer(self.handle, ptr);
     }
@@ -92,6 +101,14 @@ pub const Window = struct {
 
     pub fn swapBuffers(self: *Window) void {
         c.glfwSwapBuffers(self.handle);
+    }
+
+    fn glfw_framebuffer_size_callback(
+        _: ?*c.GLFWwindow,
+        width: c_int,
+        height: c_int,
+    ) callconv(.c) void {
+        c.glViewport(0, 0, width, height);
     }
 };
 

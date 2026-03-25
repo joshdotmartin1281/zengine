@@ -67,6 +67,10 @@ pub fn Vector(comptime size: usize, comptime T: type) type {
         pub fn length(a: Self) T {
             return dot(a, a);
         }
+
+        pub fn lerp(a: Self, b: Self, t: f32) Self {
+            return a.add(b.sub(a).scale(t));
+        }
     };
 }
 

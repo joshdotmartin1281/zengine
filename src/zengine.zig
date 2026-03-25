@@ -66,12 +66,20 @@ pub const ZEngine = struct {
 
     pub fn update(self: *ZEngine) bool {
         if (self.window.shouldClose()) return false;
-        self.window.pollEvents();
         self.input.update();
         self.timer.update();
+        self.window.pollEvents();
+
         if (builtin.mode == .Debug and self.input.isKeyPressed(c.GLFW_KEY_F5)) {
             self.reloadConfig();
         }
+
+        if (self.input.isActionPressed(.Pause)) self.window.unlockCursor();
+        if (self.input.isActionPressed(.M1)) self.window.lockCursor();
+
+        self.updateCameraLook();
+
+        self.camera.beginFrame();
 
         var steps: u32 = 0;
         while (self.timer.consumeStep() and steps < 8) : (steps += 1) {
@@ -79,6 +87,14 @@ pub const ZEngine = struct {
         }
 
         return true;
+    }
+
+    fn updateCameraLook(self: *ZEngine) void {
+        const sensitivity: f32 = 0.003;
+        const delta = self.input.getMouseDelta();
+        const dyaw: f32 = @floatCast(delta.dx * sensitivity);
+        const dpitch: f32 = @floatCast(-delta.dy * sensitivity);
+        self.camera.look(dyaw, dpitch);
     }
 
     fn reloadConfig(self: *ZEngine) void {
@@ -95,27 +111,11 @@ pub const ZEngine = struct {
     }
 
     fn physicsTick(self: *ZEngine, dt: f32) void {
-        var speed: f32 = 0.0;
-        if (self.input.isActionHeld(.Sprint)) {
-            speed = 2.0;
-        } else {
-            speed = 1.0;
-        }
-        const sensitivity = 0.1;
-
-        const delta = self.input.getMouseDelta();
-        const dyaw: f32 = @floatCast(delta.dx * sensitivity * dt);
-        const dpitch: f32 = @floatCast(-delta.dy * sensitivity * dt);
-        self.camera.look(dyaw, dpitch);
+        const speed: f32 = if (self.input.isActionHeld(.Sprint)) 2.0 else 1.0;
 
         const forward = self.camera.forward();
         const right = forward.cross(Vec3.init(.{ 0, 1, 0 })).normalize();
-        if (self.input.isActionPressed(.Pause)) {
-            self.window.unlockCursor();
-        }
-        if (self.input.isActionPressed(.M1)) {
-            self.window.lockCursor();
-        }
+
         if (self.input.isActionHeld(.Forward)) {
             self.camera.move(forward.scale(speed * dt));
         }
@@ -137,10 +137,18 @@ pub const ZEngine = struct {
     }
 
     pub fn draw(self: *ZEngine) void {
+        const alpha = self.timer.getAlpha();
         const aspect = self.window.aspectRatio();
+
+        const real_pos = self.camera.position;
+        self.camera.position = self.camera.interpolatedPosition(alpha);
+
         const view = self.camera.viewMatrix();
         const proj = self.camera.projectionMatrix(aspect);
         const vp = proj.mul(view);
+
+        self.camera.position = real_pos;
+
         c.glClearColor(0.1, 0.1, 0.1, 1.0);
         c.glClear(c.GL_COLOR_BUFFER_BIT);
         self.shader.bind();

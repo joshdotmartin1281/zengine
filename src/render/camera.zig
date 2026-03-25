@@ -1,10 +1,10 @@
-//- src/graphics/camera.zig
 const std = @import("std");
 const Vec3 = @import("../math/vector.zig").Vector(3, f32);
 const Mat4f = @import("../math/mat4.zig").Mat4(f32);
 
 pub const Camera = struct {
     position: Vec3,
+    previous_position: Vec3,
     yaw: f32,
     pitch: f32,
     fov: f32,
@@ -12,8 +12,10 @@ pub const Camera = struct {
     far: f32,
 
     pub fn init() Camera {
+        const start_pos = Vec3.init(.{ 0, 0, 3 });
         return .{
-            .position = Vec3.init(.{ 0, 0, 3 }),
+            .position = start_pos,
+            .previous_position = start_pos,
             .yaw = -std.math.pi / 2.0,
             .pitch = 0,
             .fov = std.math.pi / 4.0,
@@ -43,9 +45,21 @@ pub const Camera = struct {
         self.position = self.position.add(delta);
     }
 
+    pub fn beginFrame(self: *Camera) void {
+        self.previous_position = self.position;
+    }
+
     pub fn look(self: *Camera, dyaw: f32, dpitch: f32) void {
         self.yaw += dyaw;
         self.pitch += dpitch;
-        self.pitch = std.math.clamp(self.pitch, -std.math.pi / 2.0 + 0.01, std.math.pi / 2.0 - 0.01);
+        self.pitch = std.math.clamp(
+            self.pitch,
+            -std.math.pi / 2.0 + 0.01,
+            std.math.pi / 2.0 - 0.01,
+        );
+    }
+
+    pub fn interpolatedPosition(self: Camera, alpha: f32) Vec3 {
+        return self.previous_position.lerp(self.position, alpha);
     }
 };
