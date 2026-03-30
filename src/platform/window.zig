@@ -50,11 +50,8 @@ pub const Window = struct {
             return WindowError.GladLoadFailed;
         }
 
-        // Set initial viewport
         c.glViewport(0, 0, @intCast(config.width), @intCast(config.height));
 
-        // Register framebuffer resize callback immediately — this is a
-        // window concern, not an input concern, so it lives here
         _ = c.glfwSetFramebufferSizeCallback(handle, glfw_framebuffer_size_callback);
 
         return Window{ .handle = handle, .allocator = allocator };

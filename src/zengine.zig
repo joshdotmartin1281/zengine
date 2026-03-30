@@ -52,7 +52,7 @@ pub const ZEngine = struct {
             .input = input_manager,
             .shader = try Shader.init(vert_src, frag_src),
             .triangle = Triangle.init(),
-            .camera = Camera.init(),
+            .camera = Camera.init(Vec3.init(.{ 0, 0, 3 })),
         };
     }
 
