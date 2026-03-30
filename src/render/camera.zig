@@ -61,4 +61,8 @@ pub const Camera = struct {
     pub fn interpolatedPosition(self: Camera, alpha: f32) Vec3 {
         return self.previous_position.lerp(self.position, alpha);
     }
+
+    pub fn setPosition(self: *Camera, pos: Vec3) void {
+        self.position = pos;
+    }
 };
