@@ -69,9 +69,9 @@ pub const ZEngine = struct {
             .input = input_manager,
             .shader = shader,
             .triangle = Triangle.init(),
-            .camera = Camera.init(),
             .objMesh = objMesh,
             .gpuMesh= gpuMesh,
+            .camera = Camera.init(Vec3.init(.{ 0, 0, 3 })),
         };
     }
 

@@ -11,11 +11,10 @@ pub const Camera = struct {
     near: f32,
     far: f32,
 
-    pub fn init() Camera {
-        const start_pos = Vec3.init(.{ 0, 0, 3 });
+    pub fn init(pos: Vec3) Camera {
         return .{
-            .position = start_pos,
-            .previous_position = start_pos,
+            .position = pos,
+            .previous_position = pos,
             .yaw = -std.math.pi / 2.0,
             .pitch = 0,
             .fov = std.math.pi / 4.0,
@@ -61,5 +60,9 @@ pub const Camera = struct {
 
     pub fn interpolatedPosition(self: Camera, alpha: f32) Vec3 {
         return self.previous_position.lerp(self.position, alpha);
+    }
+
+    pub fn setPosition(self: *Camera, pos: Vec3) void {
+        self.position = pos;
     }
 };
