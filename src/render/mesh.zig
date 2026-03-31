@@ -27,6 +27,29 @@ pub const GpuMesh = struct {
         self.vertices.deinit();
         self.indices.deinit();
     }
+
+    pub fn debugPrint(self: *const Self) void {
+        std.debug.print("vertices ({d}):\n", .{self.vertices.items.len});
+        for (self.vertices.items, 0..) |v, i| {
+            std.debug.print("  [{d}] pos=({d:.3}, {d:.3}, {d:.3}) uv=({d:.3}, {d:.3}) nor=({d:.3}, {d:.3}, {d:.3})\n", .{
+                i,
+                v.position.data[0], v.position.data[1], v.position.data[2],
+                v.texcoord.data[0], v.texcoord.data[1],
+                v.normal.data[0],   v.normal.data[1],   v.normal.data[2],
+            });
+        }
+
+        std.debug.print("indices ({d}):\n", .{self.indices.items.len});
+        var i: usize = 0;
+        while (i + 2 < self.indices.items.len) : (i += 3) {
+            std.debug.print("  tri {d}: {d}, {d}, {d}\n", .{
+                i / 3,
+                self.indices.items[i],
+                self.indices.items[i + 1],
+                self.indices.items[i + 2],
+            });
+        }
+    }
 };
 
 const FaceIndexContext = struct {
@@ -61,8 +84,8 @@ pub fn deindex(mesh: *const ObjMesh, allocator: std.mem.Allocator) !GpuMesh {
             entry.value_ptr.* = @intCast(result.vertices.items.len);
 
             const pos = mesh.positions.items[face.v];
-            const uv = if (face.vt) |t| mesh.texcoords.items[t] else Vec2{ .data = .{ 0, 0 } };
-            const nor = if (face.vn) |n| mesh.normals.items[n] else Vec3{ .data = .{ 0, 0, 0 } };
+            const uv = if (face.vt) |t| mesh.texcoords.items[t] else Vec2.init( .{ 0, 0 } );
+            const nor = if (face.vn) |n| mesh.normals.items[n] else Vec3.init( .{ 0, 0, 0 } );
 
             try result.vertices.append(.{
                 .position = pos,
@@ -75,3 +98,5 @@ pub fn deindex(mesh: *const ObjMesh, allocator: std.mem.Allocator) !GpuMesh {
 
     return result;
 }
+
+

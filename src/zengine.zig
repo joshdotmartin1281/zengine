@@ -8,6 +8,8 @@ const Shader = @import("render/shader.zig").Shader;
 const Triangle = @import("render/triangle.zig").Triangle;
 const Camera = @import("render/camera.zig").Camera;
 const Vec3 = @import("math/vector.zig").Vector(3, f32);
+const ObjMesh = @import("render/obj.zig").ObjMesh;
+const mesh = @import("render/mesh.zig");
 const c = wb.c;
 
 pub const ZEngine = struct {
@@ -19,12 +21,15 @@ pub const ZEngine = struct {
     shader: Shader,
     triangle: Triangle,
     camera: Camera,
+    objMesh: ObjMesh,
+    gpuMesh: mesh.GpuMesh,
 
     pub fn init(allocator: std.mem.Allocator, base: config.Config) !ZEngine {
         const parsed = try config.load(allocator, base, "./src/core/settings.json");
+        errdefer parsed.deinit();
         const cfg = parsed.value;
 
-        const window_instance = try wb.Window.init(allocator, .{
+        var window_instance = try wb.Window.init(allocator, .{
             .title = cfg.title,
             .width = cfg.window.width,
             .height = cfg.window.height,
@@ -32,17 +37,29 @@ pub const ZEngine = struct {
             .refresh_rate = cfg.window.refresh_rate,
             .vsync = cfg.window.vsync,
         });
+        errdefer window_instance.deinit();
 
-        const input_manager = try input.InputManager.init(allocator, cfg.input);
-
+        var input_manager = try input.InputManager.init(allocator, cfg.input);
+        errdefer input_manager.deinit();
         const timer_config = time.TimerConfig{
             .target_ups = 60.0,
             .max_fps = cfg.window.max_fps,
             .clock = .{ .time_scale = 1.0, .max_delta = 0.1 },
         };
+        var objMesh = ObjMesh.init(allocator);
+        errdefer objMesh.deinit();
+        try objMesh.parseObj("assets/models/example1.obj");
+        objMesh.debugPrint();
 
         const vert_src: [*c]const u8 = @embedFile("render/shader/vert.glsl");
         const frag_src: [*c]const u8 = @embedFile("render/shader/frag.glsl");
+
+        const shader = try Shader.init(vert_src, frag_src);
+        errdefer shader.deinit();
+
+        var gpuMesh = try mesh.deindex(&objMesh, allocator);
+        errdefer gpuMesh.deinit();
+        gpuMesh.debugPrint();
 
         return ZEngine{
             .allocator = allocator,
@@ -50,9 +67,11 @@ pub const ZEngine = struct {
             .window = window_instance,
             .timer = try time.Timer.init(timer_config),
             .input = input_manager,
-            .shader = try Shader.init(vert_src, frag_src),
+            .shader = shader,
             .triangle = Triangle.init(),
             .camera = Camera.init(),
+            .objMesh = objMesh,
+            .gpuMesh= gpuMesh,
         };
     }
 
@@ -62,6 +81,8 @@ pub const ZEngine = struct {
         self.input.deinit();
         self.window.deinit();
         self.config.deinit();
+        self.objMesh.deinit();
+        self.gpuMesh.deinit();
     }
 
     pub fn update(self: *ZEngine) bool {

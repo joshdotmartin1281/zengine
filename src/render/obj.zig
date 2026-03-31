@@ -32,7 +32,8 @@ pub const ObjMesh = struct {
         self.indices.deinit();
     }
 
-    pub fn parseObj(self: *Self, allocator: std.mem.Allocator, path: []const u8) !void {
+    pub fn parseObj(self: *Self, path: []const u8) !void {
+        const allocator = self.positions.allocator;
         const file = try std.fs.cwd().openFile(path, .{});
         defer file.close();
 
@@ -64,14 +65,14 @@ pub const ObjMesh = struct {
         const x = try std.fmt.parseFloat(f32, it.next() orelse return error.MissingComponent);
         const y = try std.fmt.parseFloat(f32, it.next() orelse return error.MissingComponent);
         const z = try std.fmt.parseFloat(f32, it.next() orelse return error.MissingComponent);
-        return Vec3{ .data = .{ x, y, z } };
+        return Vec3.init(.{ x, y, z } );
     }
 
     fn parseVec2(s: []const u8) !Vec2 {
         var it = std.mem.tokenizeScalar(u8, s, ' ');
         const x = try std.fmt.parseFloat(f32, it.next() orelse return error.MissingComponent);
         const y = try std.fmt.parseFloat(f32, it.next() orelse return error.MissingComponent);
-        return Vec2{ .data = .{ x, y } };
+        return Vec2.init(.{ x, y } );
     }
 
     fn parseFaceIndex(token: []const u8) !FaceIndex {
@@ -125,6 +126,31 @@ pub const ObjMesh = struct {
                 try self.indices.append(verts[3]);
             },
             else => return error.UnsupportedPolygon,
+        }
+    }
+
+    pub fn debugPrint(self: *const Self) void {
+        std.debug.print("positions ({d}):\n", .{self.positions.items.len});
+        for (self.positions.items) |p| {
+            std.debug.print("  ({d:.3}, {d:.3}, {d:.3})\n", .{ p.data[0], p.data[1], p.data[2] });
+        }
+
+        std.debug.print("texcoords ({d}):\n", .{self.texcoords.items.len});
+        for (self.texcoords.items) |uv| {
+            std.debug.print("  ({d:.3}, {d:.3})\n", .{ uv.data[0], uv.data[1] });
+        }
+
+        std.debug.print("normals ({d}):\n", .{self.normals.items.len});
+        for (self.normals.items) |n| {
+            std.debug.print("  ({d:.3}, {d:.3}, {d:.3})\n", .{ n.data[0], n.data[1], n.data[2] });
+        }
+
+        std.debug.print("indices ({d}):\n", .{self.indices.items.len});
+        for (self.indices.items) |fi| {
+            std.debug.print("  v={d}", .{fi.v});
+            if (fi.vt) |vt| std.debug.print(" vt={d}", .{vt});
+            if (fi.vn) |vn| std.debug.print(" vn={d}", .{vn});
+            std.debug.print("\n", .{});
         }
     }
 };
