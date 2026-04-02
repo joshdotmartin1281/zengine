@@ -3,11 +3,12 @@ const Vec3 = @import("../math/vector.zig").Vector(3, f32);
 const Vec2 = @import("../math/vector.zig").Vector(2, f32);
 const ObjMesh = @import("obj.zig").ObjMesh;
 const FaceIndex = @import("obj.zig").FaceIndex;
+const c = @import("../platform/window.zig").c;
 
 pub const Vertex = struct {
     position: Vec3,
-    texcoord: Vec2,
     normal: Vec3,
+    texcoord: Vec2,
 };
 
 pub const GpuMesh = struct {
@@ -15,15 +16,70 @@ pub const GpuMesh = struct {
 
     vertices: std.ArrayList(Vertex),
     indices: std.ArrayList(u32),
+    vao: c_uint,
+    vbo: c_uint,
+    ebo: c_uint,
 
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
             .vertices = std.ArrayList(Vertex).init(allocator),
             .indices = std.ArrayList(u32).init(allocator),
+            .vao = 0,
+            .vbo = 0,
+            .ebo = 0,
         };
     }
 
+    pub fn upload(self: *Self) void {
+        c.glGenVertexArrays(1, &self.vao);
+        c.glGenBuffers(1, &self.vbo);
+        c.glGenBuffers(1, &self.ebo);
+
+        c.glBindVertexArray(self.vao);
+
+        c.glBindBuffer(c.GL_ARRAY_BUFFER, self.vbo);
+        c.glBufferData(
+            c.GL_ARRAY_BUFFER,
+            @intCast(self.vertices.items.len * @sizeOf(Vertex)),
+            self.vertices.items.ptr,
+            c.GL_STATIC_DRAW,
+        );
+
+        c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, self.ebo);
+        c.glBufferData(
+            c.GL_ELEMENT_ARRAY_BUFFER,
+            @intCast(self.indices.items.len * @sizeOf(u32)),
+            self.indices.items.ptr,
+            c.GL_STATIC_DRAW,
+        );
+
+        // position
+        c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, @sizeOf(Vertex), @ptrFromInt(0));
+        c.glEnableVertexAttribArray(0);
+
+        // normal
+        c.glVertexAttribPointer(1, 3, c.GL_FLOAT, c.GL_FALSE, @sizeOf(Vertex), @ptrFromInt(16));
+        c.glEnableVertexAttribArray(1);
+
+        // texcoord
+        c.glVertexAttribPointer(2, 2, c.GL_FLOAT, c.GL_FALSE, @sizeOf(Vertex), @ptrFromInt(32));
+        c.glEnableVertexAttribArray(2);
+
+        c.glBindVertexArray(0);
+    }
+
+    pub fn draw(self: *const Self) void {
+        c.glBindVertexArray(self.vao);
+        c.glDrawElements(c.GL_TRIANGLES, @intCast(self.indices.items.len), c.GL_UNSIGNED_INT, null);
+        c.glBindVertexArray(0);
+    }
+
     pub fn deinit(self: *Self) void {
+        if (self.vao != 0) {
+            c.glDeleteBuffers(1, &self.ebo);
+            c.glDeleteBuffers(1, &self.vbo);
+            c.glDeleteVertexArrays(1, &self.vao);
+        }
         self.vertices.deinit();
         self.indices.deinit();
     }
@@ -33,9 +89,14 @@ pub const GpuMesh = struct {
         for (self.vertices.items, 0..) |v, i| {
             std.debug.print("  [{d}] pos=({d:.3}, {d:.3}, {d:.3}) uv=({d:.3}, {d:.3}) nor=({d:.3}, {d:.3}, {d:.3})\n", .{
                 i,
-                v.position.data[0], v.position.data[1], v.position.data[2],
-                v.texcoord.data[0], v.texcoord.data[1],
-                v.normal.data[0],   v.normal.data[1],   v.normal.data[2],
+                v.position.data[0],
+                v.position.data[1],
+                v.position.data[2],
+                v.texcoord.data[0],
+                v.texcoord.data[1],
+                v.normal.data[0],
+                v.normal.data[1],
+                v.normal.data[2],
             });
         }
 
@@ -82,11 +143,9 @@ pub fn deindex(mesh: *const ObjMesh, allocator: std.mem.Allocator) !GpuMesh {
         const entry = try seen.getOrPut(face);
         if (!entry.found_existing) {
             entry.value_ptr.* = @intCast(result.vertices.items.len);
-
             const pos = mesh.positions.items[face.v];
-            const uv = if (face.vt) |t| mesh.texcoords.items[t] else Vec2.init( .{ 0, 0 } );
-            const nor = if (face.vn) |n| mesh.normals.items[n] else Vec3.init( .{ 0, 0, 0 } );
-
+            const uv = if (face.vt) |t| mesh.texcoords.items[t] else Vec2.init(.{ 0, 0 });
+            const nor = if (face.vn) |n| mesh.normals.items[n] else Vec3.init(.{ 0, 0, 0 });
             try result.vertices.append(.{
                 .position = pos,
                 .texcoord = uv,
@@ -98,5 +157,3 @@ pub fn deindex(mesh: *const ObjMesh, allocator: std.mem.Allocator) !GpuMesh {
 
     return result;
 }
-
-

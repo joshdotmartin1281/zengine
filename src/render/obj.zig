@@ -65,14 +65,14 @@ pub const ObjMesh = struct {
         const x = try std.fmt.parseFloat(f32, it.next() orelse return error.MissingComponent);
         const y = try std.fmt.parseFloat(f32, it.next() orelse return error.MissingComponent);
         const z = try std.fmt.parseFloat(f32, it.next() orelse return error.MissingComponent);
-        return Vec3.init(.{ x, y, z } );
+        return Vec3.init(.{ x, y, z });
     }
 
     fn parseVec2(s: []const u8) !Vec2 {
         var it = std.mem.tokenizeScalar(u8, s, ' ');
         const x = try std.fmt.parseFloat(f32, it.next() orelse return error.MissingComponent);
         const y = try std.fmt.parseFloat(f32, it.next() orelse return error.MissingComponent);
-        return Vec2.init(.{ x, y } );
+        return Vec2.init(.{ x, y });
     }
 
     fn parseFaceIndex(token: []const u8) !FaceIndex {

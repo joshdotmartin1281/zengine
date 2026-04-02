@@ -5,7 +5,6 @@ const wb = @import("platform/window.zig");
 const time = @import("core/time.zig");
 const input = @import("platform/input/input.zig");
 const Shader = @import("render/shader.zig").Shader;
-const Triangle = @import("render/triangle.zig").Triangle;
 const Camera = @import("render/camera.zig").Camera;
 const Vec3 = @import("math/vector.zig").Vector(3, f32);
 const ObjMesh = @import("render/obj.zig").ObjMesh;
@@ -19,7 +18,6 @@ pub const ZEngine = struct {
     timer: time.Timer,
     input: input.InputManager,
     shader: Shader,
-    triangle: Triangle,
     camera: Camera,
     objMesh: ObjMesh,
     gpuMesh: mesh.GpuMesh,
@@ -39,13 +37,17 @@ pub const ZEngine = struct {
         });
         errdefer window_instance.deinit();
 
+        c.glEnable(c.GL_DEPTH_TEST);
+
         var input_manager = try input.InputManager.init(allocator, cfg.input);
         errdefer input_manager.deinit();
+
         const timer_config = time.TimerConfig{
             .target_ups = 60.0,
             .max_fps = cfg.window.max_fps,
             .clock = .{ .time_scale = 1.0, .max_delta = 0.1 },
         };
+
         var objMesh = ObjMesh.init(allocator);
         errdefer objMesh.deinit();
         try objMesh.parseObj("assets/models/example1.obj");
@@ -59,6 +61,7 @@ pub const ZEngine = struct {
 
         var gpuMesh = try mesh.deindex(&objMesh, allocator);
         errdefer gpuMesh.deinit();
+        gpuMesh.upload();
         gpuMesh.debugPrint();
 
         return ZEngine{
@@ -68,16 +71,14 @@ pub const ZEngine = struct {
             .timer = try time.Timer.init(timer_config),
             .input = input_manager,
             .shader = shader,
-            .triangle = Triangle.init(),
             .objMesh = objMesh,
-            .gpuMesh= gpuMesh,
+            .gpuMesh = gpuMesh,
             .camera = Camera.init(Vec3.init(.{ 0, 0, 3 })),
         };
     }
 
     pub fn deinit(self: *ZEngine) void {
         self.shader.deinit();
-        self.triangle.deinit();
         self.input.deinit();
         self.window.deinit();
         self.config.deinit();
@@ -171,10 +172,10 @@ pub const ZEngine = struct {
         self.camera.position = real_pos;
 
         c.glClearColor(0.1, 0.1, 0.1, 1.0);
-        c.glClear(c.GL_COLOR_BUFFER_BIT);
+        c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
         self.shader.bind();
         self.shader.setMat4("vp", vp);
-        self.triangle.draw();
+        self.gpuMesh.draw();
         self.window.swapBuffers();
         self.timer.capFrameRate();
     }
