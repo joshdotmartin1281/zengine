@@ -40,6 +40,11 @@ pub const Shader = struct {
         c.glUniformMatrix4fv(loc, 1, c.GL_FALSE, &mat.cols[0].data[0]);
     }
 
+    pub fn setInt(self: Shader, name: [*c]const u8, value: c_int) void {
+        const loc = c.glGetUniformLocation(self.id, name);
+        c.glUniform1i(loc, value);
+    } 
+
     fn checkCompile(shader: c.GLuint, kind: []const u8) !void {
         var success: c.GLint = 0;
         c.glGetShaderiv(shader, c.GL_COMPILE_STATUS, &success);

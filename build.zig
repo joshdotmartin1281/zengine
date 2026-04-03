@@ -62,6 +62,12 @@ fn setupModule(compile: *std.Build.Step.Compile) void {
 
     compile.linkLibC();
 
+    compile.addIncludePath(b.path("deps/stb"));
+    compile.addCSourceFile(.{
+        .file = b.path("deps/stb/stb_image.c"),
+        .flags = &[_][] const u8{"-std=c99"},
+    });
+
     compile.addIncludePath(b.path("deps/glad/include"));
     compile.addCSourceFile(.{
         .file = b.path("deps/glad/src/glad.c"),

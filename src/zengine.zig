@@ -9,6 +9,7 @@ const Camera = @import("render/camera.zig").Camera;
 const Vec3 = @import("math/vector.zig").Vector(3, f32);
 const ObjMesh = @import("render/obj.zig").ObjMesh;
 const mesh = @import("render/mesh.zig");
+const Texture = @import("render/texture.zig").Texture;
 const c = wb.c;
 
 pub const ZEngine = struct {
@@ -21,11 +22,13 @@ pub const ZEngine = struct {
     camera: Camera,
     objMesh: ObjMesh,
     gpuMesh: mesh.GpuMesh,
+    texture: Texture,
 
     pub fn init(allocator: std.mem.Allocator, base: config.Config) !ZEngine {
         const parsed = try config.load(allocator, base, "./src/core/settings.json");
         errdefer parsed.deinit();
         const cfg = parsed.value;
+
 
         var window_instance = try wb.Window.init(allocator, .{
             .title = cfg.title,
@@ -37,6 +40,8 @@ pub const ZEngine = struct {
         });
         errdefer window_instance.deinit();
 
+        const texture = try Texture.load("assets/models/zig.png");
+        
         c.glEnable(c.GL_DEPTH_TEST);
 
         var input_manager = try input.InputManager.init(allocator, cfg.input);
@@ -65,25 +70,27 @@ pub const ZEngine = struct {
         gpuMesh.debugPrint();
 
         return ZEngine{
+            .shader = shader,
+            .objMesh = objMesh,
+            .gpuMesh = gpuMesh,
             .allocator = allocator,
             .config = parsed,
             .window = window_instance,
             .timer = try time.Timer.init(timer_config),
             .input = input_manager,
-            .shader = shader,
-            .objMesh = objMesh,
-            .gpuMesh = gpuMesh,
             .camera = Camera.init(Vec3.init(.{ 0, 0, 3 })),
+            .texture = texture,
         };
     }
 
     pub fn deinit(self: *ZEngine) void {
+        self.texture.deinit();
+        self.objMesh.deinit();
+        self.gpuMesh.deinit(); 
         self.shader.deinit();
         self.input.deinit();
         self.window.deinit();
         self.config.deinit();
-        self.objMesh.deinit();
-        self.gpuMesh.deinit();
     }
 
     pub fn update(self: *ZEngine) bool {
@@ -175,6 +182,8 @@ pub const ZEngine = struct {
         c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
         self.shader.bind();
         self.shader.setMat4("vp", vp);
+        self.texture.bind(0);
+        self.shader.setInt("uTexture", 0);
         self.gpuMesh.draw();
         self.window.swapBuffers();
         self.timer.capFrameRate();
