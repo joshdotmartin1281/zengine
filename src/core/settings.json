@@ -19,7 +19,8 @@
             { "action": "Sprint",   "binding_type": "Keyboard", "glfw_code": 340 },
             { "action": "Pause",    "binding_type": "Keyboard", "glfw_code": 256 },
             { "action": "M1",       "binding_type": "Mouse",    "glfw_code": 0   },
-            { "action": "M2",       "binding_type": "Mouse",    "glfw_code": 1   }
+            { "action": "M2",       "binding_type": "Mouse",    "glfw_code": 1   },
+            { "action": "Flashlight","binding_type": "Keyboard","glfw_code":70}
         ]
     }
 }

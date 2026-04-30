@@ -1,51 +1,32 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const config = @import("core/config.zig");
-const wb = @import("platform/window.zig");
 const time = @import("core/time.zig");
-const input = @import("platform/input/input.zig");
-const Shader = @import("render/shader.zig").Shader;
+const Platform = @import("platform/platform.zig").Platform;
+const Renderer = @import("render/renderer.zig").Renderer;
 const Camera = @import("render/camera.zig").Camera;
 const Vec3 = @import("math/vector.zig").Vector(3, f32);
-const ObjMesh = @import("render/obj.zig").ObjMesh;
-const mesh = @import("render/mesh.zig");
-const Texture = @import("render/texture.zig").Texture;
-const c = wb.c;
+const c = @import("platform/bindings.zig").c;
+const input = @import("platform/input/input.zig");
 
 pub const ZEngine = struct {
     allocator: std.mem.Allocator,
     config: std.json.Parsed(config.Config),
-    window: wb.Window,
+    platform: Platform,
+    renderer: Renderer,
     timer: time.Timer,
-    input: input.InputManager,
-    shader: Shader,
     camera: Camera,
-    objMesh: ObjMesh,
-    gpuMesh: mesh.GpuMesh,
-    texture: Texture,
 
     pub fn init(allocator: std.mem.Allocator, base: config.Config) !ZEngine {
         const parsed = try config.load(allocator, base, "./src/core/settings.json");
         errdefer parsed.deinit();
         const cfg = parsed.value;
 
+        var platform = try Platform.init(allocator, cfg);
+        errdefer platform.deinit();
 
-        var window_instance = try wb.Window.init(allocator, .{
-            .title = cfg.title,
-            .width = cfg.window.width,
-            .height = cfg.window.height,
-            .fullscreen = cfg.window.fullscreen,
-            .refresh_rate = cfg.window.refresh_rate,
-            .vsync = cfg.window.vsync,
-        });
-        errdefer window_instance.deinit();
-
-        const texture = try Texture.load("assets/models/zig.png");
-        
-        c.glEnable(c.GL_DEPTH_TEST);
-
-        var input_manager = try input.InputManager.init(allocator, cfg.input);
-        errdefer input_manager.deinit();
+        var renderer = try Renderer.init(allocator, "assets/models/example2");
+        errdefer renderer.deinit();
 
         const timer_config = time.TimerConfig{
             .target_ups = 60.0,
@@ -53,61 +34,35 @@ pub const ZEngine = struct {
             .clock = .{ .time_scale = 1.0, .max_delta = 0.1 },
         };
 
-        var objMesh = ObjMesh.init(allocator);
-        errdefer objMesh.deinit();
-        try objMesh.parseObj("assets/models/example1.obj");
-        objMesh.debugPrint();
-
-        const vert_src: [*c]const u8 = @embedFile("render/shader/vert.glsl");
-        const frag_src: [*c]const u8 = @embedFile("render/shader/frag.glsl");
-
-        const shader = try Shader.init(vert_src, frag_src);
-        errdefer shader.deinit();
-
-        var gpuMesh = try mesh.deindex(&objMesh, allocator);
-        errdefer gpuMesh.deinit();
-        gpuMesh.upload();
-        gpuMesh.debugPrint();
-
         return ZEngine{
-            .shader = shader,
-            .objMesh = objMesh,
-            .gpuMesh = gpuMesh,
             .allocator = allocator,
             .config = parsed,
-            .window = window_instance,
+            .platform = platform,
+            .renderer = renderer,
             .timer = try time.Timer.init(timer_config),
-            .input = input_manager,
             .camera = Camera.init(Vec3.init(.{ 0, 0, 3 })),
-            .texture = texture,
         };
     }
 
     pub fn deinit(self: *ZEngine) void {
-        self.texture.deinit();
-        self.objMesh.deinit();
-        self.gpuMesh.deinit(); 
-        self.shader.deinit();
-        self.input.deinit();
-        self.window.deinit();
+        self.renderer.deinit();
+        self.platform.deinit();
         self.config.deinit();
     }
 
     pub fn update(self: *ZEngine) bool {
-        if (self.window.shouldClose()) return false;
-        self.input.update();
+        if (!self.platform.update()) return false;
         self.timer.update();
-        self.window.pollEvents();
 
-        if (builtin.mode == .Debug and self.input.isKeyPressed(c.GLFW_KEY_F5)) {
+        if (builtin.mode == .Debug and self.platform.input.isKeyPressed(c.GLFW_KEY_F5)) {
             self.reloadConfig();
         }
 
-        if (self.input.isActionPressed(.Pause)) self.window.unlockCursor();
-        if (self.input.isActionPressed(.M1)) self.window.lockCursor();
+        if (self.platform.input.isActionPressed(.Pause)) self.platform.window.unlockCursor();
+        if (self.platform.input.isActionPressed(.M1)) self.platform.window.lockCursor();
+        if (self.platform.input.isActionPressed(.Flashlight)) self.renderer.flashlight_on = !self.renderer.flashlight_on;
 
         self.updateCameraLook();
-
         self.camera.beginFrame();
 
         var steps: u32 = 0;
@@ -120,7 +75,7 @@ pub const ZEngine = struct {
 
     fn updateCameraLook(self: *ZEngine) void {
         const sensitivity: f32 = 0.003;
-        const delta = self.input.getMouseDelta();
+        const delta = self.platform.input.getMouseDelta();
         const dyaw: f32 = @floatCast(delta.dx * sensitivity);
         const dpitch: f32 = @floatCast(-delta.dy * sensitivity);
         self.camera.look(dyaw, dpitch);
@@ -133,59 +88,32 @@ pub const ZEngine = struct {
         };
         self.config.deinit();
         self.config = reparsed;
-        self.input.reload(self.config.value.input) catch |err| {
+        self.platform.reload(self.config.value) catch |err| {
             std.log.warn("Input reload failed: {}", .{err});
         };
         std.log.info("Config reloaded.", .{});
     }
 
     fn physicsTick(self: *ZEngine, dt: f32) void {
-        const speed: f32 = if (self.input.isActionHeld(.Sprint)) 2.0 else 1.0;
-
+        const speed: f32 = if (self.platform.input.isActionHeld(.Sprint)) 2.0 else 1.0;
         const forward = self.camera.forward();
         const right = forward.cross(Vec3.init(.{ 0, 1, 0 })).normalize();
 
-        if (self.input.isActionHeld(.Forward)) {
-            self.camera.move(forward.scale(speed * dt));
-        }
-        if (self.input.isActionHeld(.Backward)) {
-            self.camera.move(forward.scale(-speed * dt));
-        }
-        if (self.input.isActionHeld(.Left)) {
-            self.camera.move(right.scale(-speed * dt));
-        }
-        if (self.input.isActionHeld(.Right)) {
-            self.camera.move(right.scale(speed * dt));
-        }
-        if (self.input.isActionHeld(.Jump)) {
-            self.camera.move(Vec3.init(.{ 0, speed * dt, 0 }));
-        }
-        if (self.input.isActionHeld(.Crouch)) {
-            self.camera.move(Vec3.init(.{ 0, -speed * dt, 0 }));
-        }
+        if (self.platform.input.isActionHeld(.Forward)) self.camera.move(forward.scale(speed * dt));
+        if (self.platform.input.isActionHeld(.Backward)) self.camera.move(forward.scale(-speed * dt));
+        if (self.platform.input.isActionHeld(.Left)) self.camera.move(right.scale(-speed * dt));
+        if (self.platform.input.isActionHeld(.Right)) self.camera.move(right.scale(speed * dt));
+        if (self.platform.input.isActionHeld(.Jump)) self.camera.move(Vec3.init(.{ 0, speed * dt, 0 }));
+        if (self.platform.input.isActionHeld(.Crouch)) self.camera.move(Vec3.init(.{ 0, -speed * dt, 0 }));
+
+        self.renderer.flashlight_pos = self.camera.position;
     }
 
     pub fn draw(self: *ZEngine) void {
         const alpha = self.timer.getAlpha();
-        const aspect = self.window.aspectRatio();
-
-        const real_pos = self.camera.position;
-        self.camera.position = self.camera.interpolatedPosition(alpha);
-
-        const view = self.camera.viewMatrix();
-        const proj = self.camera.projectionMatrix(aspect);
-        const vp = proj.mul(view);
-
-        self.camera.position = real_pos;
-
-        c.glClearColor(0.1, 0.1, 0.1, 1.0);
-        c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
-        self.shader.bind();
-        self.shader.setMat4("vp", vp);
-        self.texture.bind(0);
-        self.shader.setInt("uTexture", 0);
-        self.gpuMesh.draw();
-        self.window.swapBuffers();
+        const aspect = self.platform.window.aspectRatio();
+        self.renderer.draw(&self.camera, aspect, alpha);
+        self.platform.window.swapBuffers();
         self.timer.capFrameRate();
     }
 };

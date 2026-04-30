@@ -1,9 +1,5 @@
 const std = @import("std");
-pub const c = @cImport({
-    @cInclude("glad/glad.h");
-    @cInclude("GLFW/glfw3.h");
-    @cInclude("stb_image.h");
-});
+const c = @import("bindings.zig").c;
 
 pub const WindowConfig = struct {
     width: u32,
@@ -14,16 +10,22 @@ pub const WindowConfig = struct {
     vsync: bool,
 };
 
+pub const WindowError = error{
+    GlfWInitFailed,
+    WindowCreationFailed,
+    GladLoadFailed,
+};
+
 pub const Window = struct {
     handle: *c.GLFWwindow,
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator, config: WindowConfig) !Window {
         if (c.glfwInit() == c.GLFW_FALSE) return WindowError.GlfWInitFailed;
+
         c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MAJOR, 3);
         c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MINOR, 3);
         c.glfwWindowHint(c.GLFW_OPENGL_PROFILE, c.GLFW_OPENGL_CORE_PROFILE);
-        c.glfwWindowHint(c.GLFW_COCOA_RETINA_FRAMEBUFFER, c.GLFW_TRUE);
         c.glfwWindowHint(c.GLFW_REFRESH_RATE, @intCast(config.refresh_rate));
 
         var monitor: ?*c.GLFWmonitor = null;
@@ -52,7 +54,6 @@ pub const Window = struct {
         }
 
         c.glViewport(0, 0, @intCast(config.width), @intCast(config.height));
-
         _ = c.glfwSetFramebufferSizeCallback(handle, glfw_framebuffer_size_callback);
 
         return Window{ .handle = handle, .allocator = allocator };
@@ -108,10 +109,4 @@ pub const Window = struct {
     ) callconv(.c) void {
         c.glViewport(0, 0, width, height);
     }
-};
-
-pub const WindowError = error{
-    GlfWInitFailed,
-    WindowCreationFailed,
-    GladLoadFailed,
 };

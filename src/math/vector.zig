@@ -112,7 +112,6 @@ test "vec3 sub self is zero" {
     try std.testing.expect(vec3Eq(a.sub(a), Vec3.init(.{ 0, 0, 0 })));
 }
 
-// --- dot ---
 test "vec3 dot perpendicular is zero" {
     const x = Vec3.init(.{ 1, 0, 0 });
     const y = Vec3.init(.{ 0, 1, 0 });

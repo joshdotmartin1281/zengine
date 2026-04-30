@@ -15,3 +15,4 @@ GLFW
 
 GLAD
 
+stb_image

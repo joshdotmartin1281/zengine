@@ -1,5 +1,6 @@
 const std = @import("std");
-const c = @import("../platform/window.zig").c;
+const Vec3 = @import("../math/vector.zig").Vector(3, f32);
+const c = @import("../platform/bindings.zig").c;
 
 pub const Shader = struct {
     id: c.GLuint,
@@ -35,6 +36,16 @@ pub const Shader = struct {
         c.glUseProgram(self.id);
     }
 
+    pub fn setVec3(self: Shader, name: [*c]const u8, v: Vec3) void {
+        const loc = c.glGetUniformLocation(self.id, name);
+        c.glUniform3f(loc, v.data[0], v.data[1], v.data[2]);
+    }
+
+    pub fn setMat3(self: Shader, name: [*c]const u8, mat: [9]f32) void {
+        const loc = c.glGetUniformLocation(self.id, name);
+        c.glUniformMatrix3fv(loc, 1, c.GL_FALSE, &mat[0]);
+    }
+
     pub fn setMat4(self: Shader, name: [*c]const u8, mat: anytype) void {
         const loc = c.glGetUniformLocation(self.id, name);
         c.glUniformMatrix4fv(loc, 1, c.GL_FALSE, &mat.cols[0].data[0]);
@@ -43,7 +54,7 @@ pub const Shader = struct {
     pub fn setInt(self: Shader, name: [*c]const u8, value: c_int) void {
         const loc = c.glGetUniformLocation(self.id, name);
         c.glUniform1i(loc, value);
-    } 
+    }
 
     fn checkCompile(shader: c.GLuint, kind: []const u8) !void {
         var success: c.GLint = 0;

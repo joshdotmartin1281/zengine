@@ -15,6 +15,7 @@ pub const ObjMesh = struct {
     texcoords: std.ArrayList(Vec2),
     normals: std.ArrayList(Vec3),
     indices: std.ArrayList(FaceIndex),
+    texture_path: ?[]u8,
 
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
@@ -22,10 +23,13 @@ pub const ObjMesh = struct {
             .texcoords = std.ArrayList(Vec2).init(allocator),
             .normals = std.ArrayList(Vec3).init(allocator),
             .indices = std.ArrayList(FaceIndex).init(allocator),
+            .texture_path = null,
         };
     }
 
     pub fn deinit(self: *Self) void {
+        const allocator = self.positions.allocator;
+        if (self.texture_path) |p| allocator.free(p);
         self.positions.deinit();
         self.texcoords.deinit();
         self.normals.deinit();
@@ -37,15 +41,22 @@ pub const ObjMesh = struct {
         const file = try std.fs.cwd().openFile(path, .{});
         defer file.close();
 
-        const source = try file.readToEndAlloc(allocator, 1024 * 1024 * 64); // 64MB max
+        const source = try file.readToEndAlloc(allocator, 1024 * 1024 * 64);
         defer allocator.free(source);
+
+        const dir = std.fs.path.dirname(path) orelse ".";
 
         var lines = std.mem.splitScalar(u8, source, '\n');
         while (lines.next()) |line| {
             const trimmed = std.mem.trim(u8, line, &std.ascii.whitespace);
             if (trimmed.len == 0 or trimmed[0] == '#') continue;
 
-            if (std.mem.startsWith(u8, trimmed, "vt ")) {
+            if (std.mem.startsWith(u8, trimmed, "mtllib ")) {
+                const mtl_name = std.mem.trim(u8, trimmed[7..], &std.ascii.whitespace);
+                const mtl_path = try std.fs.path.join(allocator, &.{ dir, mtl_name });
+                defer allocator.free(mtl_path);
+                try self.parseMtl(mtl_path, dir);
+            } else if (std.mem.startsWith(u8, trimmed, "vt ")) {
                 const uv = try parseVec2(trimmed[3..]);
                 try self.texcoords.append(uv);
             } else if (std.mem.startsWith(u8, trimmed, "vn ")) {
@@ -56,6 +67,29 @@ pub const ObjMesh = struct {
                 try self.positions.append(pos);
             } else if (std.mem.startsWith(u8, trimmed, "f ")) {
                 try parseFace(self, trimmed[2..]);
+            }
+        }
+    }
+
+    fn parseMtl(self: *Self, path: []const u8, dir: []const u8) !void {
+        const allocator = self.positions.allocator;
+        const file = std.fs.cwd().openFile(path, .{}) catch return;
+        defer file.close();
+
+        const source = try file.readToEndAlloc(allocator, 1024 * 1024);
+        defer allocator.free(source);
+
+        var lines = std.mem.splitScalar(u8, source, '\n');
+        while (lines.next()) |line| {
+            const trimmed = std.mem.trim(u8, line, &std.ascii.whitespace);
+            if (trimmed.len == 0 or trimmed[0] == '#') continue;
+
+            if (std.mem.startsWith(u8, trimmed, "map_Kd ")) {
+                const raw = std.mem.trim(u8, trimmed[7..], &std.ascii.whitespace);
+                const filename = std.fs.path.basename(raw);
+                const full = try std.fs.path.join(allocator, &.{ dir, filename });
+                if (self.texture_path) |old| allocator.free(old);
+                self.texture_path = full;
             }
         }
     }
@@ -120,7 +154,6 @@ pub const ObjMesh = struct {
                 try self.indices.append(verts[0]);
                 try self.indices.append(verts[1]);
                 try self.indices.append(verts[2]);
-
                 try self.indices.append(verts[0]);
                 try self.indices.append(verts[2]);
                 try self.indices.append(verts[3]);
@@ -130,21 +163,19 @@ pub const ObjMesh = struct {
     }
 
     pub fn debugPrint(self: *const Self) void {
+        std.debug.print("texture_path: {?s}\n", .{self.texture_path});
         std.debug.print("positions ({d}):\n", .{self.positions.items.len});
         for (self.positions.items) |p| {
             std.debug.print("  ({d:.3}, {d:.3}, {d:.3})\n", .{ p.data[0], p.data[1], p.data[2] });
         }
-
         std.debug.print("texcoords ({d}):\n", .{self.texcoords.items.len});
         for (self.texcoords.items) |uv| {
             std.debug.print("  ({d:.3}, {d:.3})\n", .{ uv.data[0], uv.data[1] });
         }
-
         std.debug.print("normals ({d}):\n", .{self.normals.items.len});
         for (self.normals.items) |n| {
             std.debug.print("  ({d:.3}, {d:.3}, {d:.3})\n", .{ n.data[0], n.data[1], n.data[2] });
         }
-
         std.debug.print("indices ({d}):\n", .{self.indices.items.len});
         for (self.indices.items) |fi| {
             std.debug.print("  v={d}", .{fi.v});

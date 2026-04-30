@@ -4,10 +4,16 @@ layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec2 aTexCoord;
 
 uniform mat4 vp;
+uniform mat4 model;
+uniform mat3 normalMatrix;
 
 out vec2 vTexCoord;
+out vec3 vNormal;
+out vec3 vFragPos;
 
 void main() {
     vTexCoord = aTexCoord;
-    gl_Position = vp * vec4(aPos, 1.0);
+    vFragPos  = vec3(model * vec4(aPos, 1.0));
+    vNormal   = normalMatrix * aNormal;
+    gl_Position = vp * vec4(vFragPos, 1.0);
 }

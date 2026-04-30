@@ -3,7 +3,7 @@ const Vec3 = @import("../math/vector.zig").Vector(3, f32);
 const Vec2 = @import("../math/vector.zig").Vector(2, f32);
 const ObjMesh = @import("obj.zig").ObjMesh;
 const FaceIndex = @import("obj.zig").FaceIndex;
-const c = @import("../platform/window.zig").c;
+const c = @import("../platform/bindings.zig").c;
 
 pub const Vertex = struct {
     position: Vec3,

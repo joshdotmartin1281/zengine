@@ -1,5 +1,5 @@
 const std = @import("std");
-const c = @import("../platform/window.zig").c;
+const c = @import("../platform/bindings.zig").c;
 
 pub const Texture = struct {
     id: c.GLuint,

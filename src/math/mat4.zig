@@ -21,10 +21,69 @@ pub fn Mat4(comptime T: type) type {
             } };
         }
 
+        pub fn toMat3(m: Self) [9]T {
+            return .{
+                m.cols[0].data[0], m.cols[0].data[1], m.cols[0].data[2],
+                m.cols[1].data[0], m.cols[1].data[1], m.cols[1].data[2],
+                m.cols[2].data[0], m.cols[2].data[1], m.cols[2].data[2],
+            };
+        }
+
         pub fn identity() Self {
             return .init(.{
                 .{ 1, 0, 0, 0 },
                 .{ 0, 1, 0, 0 },
+                .{ 0, 0, 1, 0 },
+                .{ 0, 0, 0, 1 },
+            });
+        }
+
+        pub fn translate(v: Vec3) Self {
+            return init(.{
+                .{ 1, 0, 0, 0 },
+                .{ 0, 1, 0, 0 },
+                .{ 0, 0, 1, 0 },
+                .{ v.data[0], v.data[1], v.data[2], 1 },
+            });
+        }
+
+        pub fn scale(v: Vec3) Self {
+            return init(.{
+                .{ v.data[0], 0, 0, 0 },
+                .{ 0, v.data[1], 0, 0 },
+                .{ 0, 0, v.data[2], 0 },
+                .{ 0, 0, 0, 1 },
+            });
+        }
+
+        pub fn rotateY(angle: T) Self {
+            const cos = @cos(angle);
+            const sin = @sin(angle);
+            return init(.{
+                .{ cos, 0, sin, 0 },
+                .{ 0, 1, 0, 0 },
+                .{ -sin, 0, cos, 0 },
+                .{ 0, 0, 0, 1 },
+            });
+        }
+
+        pub fn rotateX(angle: T) Self {
+            const cos = @cos(angle);
+            const sin = @sin(angle);
+            return init(.{
+                .{ 1, 0, 0, 0 },
+                .{ 0, cos, -sin, 0 },
+                .{ 0, sin, cos, 0 },
+                .{ 0, 0, 0, 1 },
+            });
+        }
+
+        pub fn rotateZ(angle: T) Self {
+            const cos = @cos(angle);
+            const sin = @sin(angle);
+            return init(.{
+                .{ cos, -sin, 0, 0 },
+                .{ sin, cos, 0, 0 },
                 .{ 0, 0, 1, 0 },
                 .{ 0, 0, 0, 1 },
             });

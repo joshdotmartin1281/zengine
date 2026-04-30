@@ -16,6 +16,7 @@ pub const Action = enum(u8) {
     Pause,
     M1,
     M2,
+    Flashlight,
 };
 
 pub const Binding = enum(u8) {
